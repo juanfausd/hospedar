@@ -1,0 +1,892 @@
+'use client'
+
+import { useState, useMemo, useEffect } from 'react'
+import { Reservation } from '@/lib/types'
+
+type View = 'table' | 'calendar'
+type MsgType = 'confirm' | 'checkin' | 'checkout'
+
+const DEFAULT_TEMPLATE_CONFIRM =
+`Hola *{nombre}*! 😊
+
+Te escribimos para confirmar tu reserva en *Hospedaje Colón*.
+
+📅 *Ingreso:* {checkin}
+📅 *Egreso:* {checkout}
+🌙 *Noches:* {noches}
+👥 *Personas:* {personas}
+
+Por favor confirmanos si todo está correcto. ¡Muchas gracias!`
+
+const DEFAULT_TEMPLATE_CHECKIN =
+`Hola *{nombre}*! 😊
+
+Te esperamos hoy en *Hospedaje Colón*.
+
+📅 *Check-in:* {checkin}
+🌙 *Noches:* {noches}
+👥 *Personas:* {personas}
+
+Ante cualquier consulta no dudes en escribirnos. ¡Bienvenido/a!`
+
+const DEFAULT_TEMPLATE_CHECKOUT =
+`Hola *{nombre}*! 😊
+
+Te recordamos que mañana, *{checkout}*, es tu día de salida de *Hospedaje Colón*.
+
+¡Esperamos que hayas disfrutado tu estadía! Fue un placer tenerte con nosotros. 🙏`
+
+const MSG_LABELS: Record<MsgType, string> = {
+  confirm: 'Confirmación',
+  checkin: 'Ingreso',
+  checkout: 'Egreso',
+}
+
+const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+const MONTHS_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+
+function toDateStr(d: string | Date): string {
+  if (!d) return ""
+  if (typeof d === "string") return d
+  return d.toISOString()
+}
+
+function nightsBetween(a: string | Date, b: string | Date) {
+  return Math.max(0, Math.round((new Date(toDateStr(b)).getTime() - new Date(toDateStr(a)).getTime()) / 86400000))
+}
+function formatDate(d: string | Date) {
+  if (!d) return "—"
+  const s = toDateStr(d)
+  const [y, m, day] = s.split("T")[0].split("-")
+  return `${day}/${m}/${y}`
+}
+function formatARS(n: number) {
+  return '$' + Number(n).toLocaleString('es-AR')
+}
+function monthKey(d: string | Date) {
+  const s = toDateStr(d)
+  return s ? s.slice(0, 7) : ""
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  confirmed: 'Confirmada',
+  pending: 'Pendiente',
+  cancelled: 'Cancelada',
+}
+const STATUS_STYLES: Record<string, string> = {
+  confirmed: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
+  pending: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
+  cancelled: 'bg-red-50 text-red-700 ring-1 ring-red-200',
+}
+const SOURCE_LABELS: Record<string, string> = {
+  booking: 'Booking',
+  airbnb: 'Airbnb',
+  particular: 'Particular',
+}
+const SOURCE_STYLES: Record<string, string> = {
+  booking: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
+  airbnb: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
+  particular: 'bg-stone-100 text-stone-600 ring-1 ring-stone-200',
+}
+
+const CAL_SOURCE_STYLES: Record<string, string> = {
+  booking: 'bg-blue-100 text-blue-700 border-l-2 border-blue-400',
+  airbnb: 'bg-rose-100 text-rose-700 border-l-2 border-rose-400',
+  particular: 'bg-stone-100 text-stone-700 border-l-2 border-stone-400',
+}
+const DOW_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+
+function CalendarView({
+  reservations, calMonth, setCalMonth, onEdit,
+}: {
+  reservations: Reservation[]
+  calMonth: string
+  setCalMonth: (m: string) => void
+  onEdit: (r: Reservation) => void
+}) {
+  const [year, month] = calMonth.split('-').map(Number)
+
+  function prevMonth() {
+    const d = new Date(year, month - 2, 1)
+    setCalMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+  function nextMonth() {
+    const d = new Date(year, month, 1)
+    setCalMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+
+  const daysInMonth = new Date(year, month, 0).getDate()
+  // Monday=0 offset
+  const startDow = (new Date(year, month - 1, 1).getDay() + 6) % 7
+  const cells: (number | null)[] = [
+    ...Array(startDow).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ]
+  // pad to full weeks
+  while (cells.length % 7 !== 0) cells.push(null)
+
+  function dayStr(day: number) {
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  }
+
+  function reservationsForDay(day: number) {
+    const d = dayStr(day)
+    return reservations.filter(r => {
+      if (r.status === 'cancelled') return false
+      const cin = toDateStr(r.checkin).slice(0, 10)
+      const cout = toDateStr(r.checkout).slice(0, 10)
+      return cin <= d && d < cout
+    })
+  }
+
+  const todayStr = new Date().toISOString().slice(0, 10)
+
+  // Find months that have at least one reservation
+  const monthsWithReservations = useMemo(() => {
+    const set = new Set<string>()
+    for (const r of reservations) {
+      if (r.status === 'cancelled') continue
+      set.add(toDateStr(r.checkin).slice(0, 7))
+    }
+    return [...set].sort()
+  }, [reservations])
+
+  function goToNextMonthWithReservations() {
+    const next = monthsWithReservations.find(m => m > calMonth)
+    if (next) setCalMonth(next)
+  }
+  function goToPrevMonthWithReservations() {
+    const prev = [...monthsWithReservations].reverse().find(m => m < calMonth)
+    if (prev) setCalMonth(prev)
+  }
+
+  const hasReservationsThisMonth = monthsWithReservations.includes(calMonth)
+
+  return (
+    <div className="p-4">
+      {/* Month nav */}
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={prevMonth} className="px-3 py-1.5 text-sm rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors">‹</button>
+        <span className="text-sm font-semibold text-stone-800">
+          {MONTHS[month - 1]} {year}
+        </span>
+        <button onClick={nextMonth} className="px-3 py-1.5 text-sm rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors">›</button>
+      </div>
+
+      {/* Day-of-week headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {DOW_LABELS.map(d => (
+          <div key={d} className="text-center text-xs font-medium text-stone-400 py-1">{d}</div>
+        ))}
+      </div>
+
+      {/* Day cells */}
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((day, i) => {
+          if (!day) return <div key={i} />
+          const ds = dayStr(day)
+          const isToday = ds === todayStr
+          const dayRes = reservationsForDay(day)
+          return (
+            <div key={i} className={`min-h-[80px] rounded-lg p-1 border ${isToday ? 'border-stone-400 bg-stone-50' : 'border-stone-100'}`}>
+              <span className={`text-xs font-medium block mb-1 ${isToday ? 'text-stone-900' : 'text-stone-400'}`}>{day}</span>
+              <div className="space-y-0.5">
+                {dayRes.slice(0, 3).map(r => (
+                  <button key={r.id} onClick={() => onEdit(r)}
+                    className={`w-full text-left text-xs px-1 py-0.5 rounded truncate ${CAL_SOURCE_STYLES[r.source] || CAL_SOURCE_STYLES.particular}`}>
+                    {r.name.split(' ')[0]}
+                  </button>
+                ))}
+                {dayRes.length > 3 && (
+                  <span className="text-xs text-stone-400 px-1">+{dayRes.length - 3} más</span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Empty month notice */}
+      {!hasReservationsThisMonth && (
+        <div className="mt-4 p-3 rounded-lg bg-stone-50 border border-stone-100 text-center">
+          <p className="text-xs text-stone-400 mb-2">No hay reservas en este mes.</p>
+          <div className="flex items-center justify-center gap-2">
+            {monthsWithReservations.some(m => m < calMonth) && (
+              <button onClick={goToPrevMonthWithReservations}
+                className="text-xs px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-100 transition-colors">
+                ‹ Mes anterior con reservas
+              </button>
+            )}
+            {monthsWithReservations.some(m => m > calMonth) && (
+              <button onClick={goToNextMonthWithReservations}
+                className="text-xs px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-100 transition-colors">
+                Próximo mes con reservas ›
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 mt-4 pt-3 border-t border-stone-100">
+        {Object.entries(SOURCE_LABELS).map(([key, label]) => (
+          <div key={key} className="flex items-center gap-1.5">
+            <span className={`inline-block w-3 h-3 rounded-sm ${CAL_SOURCE_STYLES[key]}`} />
+            <span className="text-xs text-stone-500">{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const emptyForm = {
+  name: '', phone: '', checkin: '', checkout: '',
+  guests: 1, cost: 0, sena: 0, status: 'confirmed' as const,
+  source: 'particular' as const, notes: '',
+}
+
+export default function ReservationsClient({ initialReservations }: { initialReservations: Reservation[] }) {
+  const [reservations, setReservations] = useState<Reservation[]>(initialReservations)
+  const [filterMonth, setFilterMonth] = useState('all')
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [form, setForm] = useState({ ...emptyForm })
+  const [syncing, setSyncing] = useState(false)
+  const [alert, setAlert] = useState<{ msg: string; type: 'green' | 'red' | 'amber' } | null>(null)
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [view, setView] = useState<View>('table')
+  const today2 = new Date()
+  const [calMonth, setCalMonth] = useState(`${today2.getFullYear()}-${String(today2.getMonth() + 1).padStart(2, '0')}`)
+  const [configOpen, setConfigOpen] = useState(false)
+  const [configForm, setConfigForm] = useState({
+    ical_url: '',
+    template_confirm: DEFAULT_TEMPLATE_CONFIRM,
+    template_checkin: DEFAULT_TEMPLATE_CHECKIN,
+    template_checkout: DEFAULT_TEMPLATE_CHECKOUT,
+  })
+  const [configSaving, setConfigSaving] = useState(false)
+  const [templates, setTemplates] = useState({
+    confirm: DEFAULT_TEMPLATE_CONFIRM,
+    checkin: DEFAULT_TEMPLATE_CHECKIN,
+    checkout: DEFAULT_TEMPLATE_CHECKOUT,
+  })
+  const [msgReservation, setMsgReservation] = useState<Reservation | null>(null)
+  const [msgTab, setMsgTab] = useState<MsgType>('confirm')
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    const today = new Date()
+    if (today.getDate() === 1) {
+      setAlert({ msg: `Recordatorio: hoy es 1° de ${MONTHS_ES[today.getMonth()]}. Revisá las reservas y contactá a los huéspedes.`, type: 'amber' })
+    }
+    fetch('/api/settings').then(r => r.json()).then(data => {
+      setTemplates({
+        confirm: data.template_confirm || DEFAULT_TEMPLATE_CONFIRM,
+        checkin: data.template_checkin || DEFAULT_TEMPLATE_CHECKIN,
+        checkout: data.template_checkout || DEFAULT_TEMPLATE_CHECKOUT,
+      })
+    }).catch(() => {})
+  }, [])
+
+  function applyTemplate(type: MsgType, r: Reservation): string {
+    const sena = Number(r.sena || 0)
+    let tpl = templates[type]
+    // If no deposit, remove any line that contains {seña} entirely
+    if (sena <= 0) {
+      tpl = tpl.split('\n').filter(line => !line.includes('{seña}')).join('\n')
+    }
+    return tpl
+      .replace(/{nombre}/g, r.name)
+      .replace(/{checkin}/g, formatDate(r.checkin))
+      .replace(/{checkout}/g, formatDate(r.checkout))
+      .replace(/{noches}/g, String(nightsBetween(r.checkin, r.checkout)))
+      .replace(/{personas}/g, String(r.guests))
+      .replace(/{seña}/g, formatARS(sena))
+      .replace(/{total}/g, formatARS(Number(r.cost || 0)))
+  }
+
+  const months = useMemo(() => {
+    const keys = [...new Set(reservations.map(r => monthKey(r.checkin)).filter(Boolean))].sort().reverse()
+    return keys.map(k => {
+      const [y, m] = k.split('-')
+      return { key: k, label: `${MONTHS[parseInt(m) - 1]} ${y}` }
+    })
+  }, [reservations])
+
+  const filtered = useMemo(() => {
+    return reservations
+      .filter(r => filterMonth === 'all' || monthKey(r.checkin) === filterMonth)
+      .sort((a, b) => a.checkin > b.checkin ? 1 : -1)
+  }, [reservations, filterMonth])
+
+  const metrics = useMemo(() => {
+    const active = filtered.filter(r => r.status !== 'cancelled')
+    return {
+      count: active.length,
+      nights: active.reduce((s, r) => s + nightsBetween(r.checkin, r.checkout), 0),
+      guests: active.reduce((s, r) => s + Number(r.guests), 0),
+      revenue: active.reduce((s, r) => s + Number(r.cost), 0),
+    }
+  }, [filtered])
+
+  const totals = useMemo(() => {
+    const rows = filtered.filter(r => r.status !== 'cancelled')
+    return {
+      nights: rows.reduce((s, r) => s + nightsBetween(r.checkin, r.checkout), 0),
+      guests: rows.reduce((s, r) => s + Number(r.guests), 0),
+      sena: rows.reduce((s, r) => s + Number(r.sena || 0), 0),
+      cost: rows.reduce((s, r) => s + Number(r.cost || 0), 0),
+    }
+  }, [filtered])
+
+  function showAlert(msg: string, type: 'green' | 'red' | 'amber') {
+    setAlert({ msg, type })
+    setTimeout(() => setAlert(null), 6000)
+  }
+
+  async function fetchReservations() {
+    const res = await fetch('/api/reservations')
+    const data = await res.json()
+    setReservations(data)
+    setSelected(new Set())
+  }
+
+  // Selection
+  const allFilteredIds = filtered.map(r => r.id)
+  const allSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selected.has(id))
+  const someSelected = selected.size > 0
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(allFilteredIds))
+    }
+  }
+
+  function toggleSelect(id: number) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  // Delete
+  async function handleDelete(id: number) {
+    if (!window.confirm('¿Eliminás esta reserva?')) return
+    await fetch(`/api/reservations/${id}`, { method: 'DELETE' })
+    setReservations(prev => prev.filter(r => r.id !== id))
+    setSelected(prev => { const n = new Set(prev); n.delete(id); return n })
+  }
+
+  async function handleDeleteSelected() {
+    if (!window.confirm(`¿Eliminás las ${selected.size} reservas seleccionadas?`)) return
+    await Promise.all([...selected].map(id => fetch(`/api/reservations/${id}`, { method: 'DELETE' })))
+    setReservations(prev => prev.filter(r => !selected.has(r.id)))
+    setSelected(new Set())
+    showAlert(`${selected.size} reservas eliminadas.`, 'green')
+  }
+
+  // Modal
+  function openNew() {
+    setEditingId(null)
+    setForm({ ...emptyForm })
+    setModalOpen(true)
+  }
+
+  function openEdit(r: Reservation) {
+    setEditingId(r.id)
+    setForm({
+      name: r.name,
+      phone: r.phone || '',
+      checkin: toDateStr(r.checkin).split('T')[0],
+      checkout: toDateStr(r.checkout).split('T')[0],
+      guests: r.guests,
+      cost: r.cost,
+      sena: r.sena || 0,
+      status: r.status as any,
+      source: (r.source || 'particular') as any,
+      notes: r.notes || '',
+    })
+    setModalOpen(true)
+  }
+
+  async function handleSave() {
+    if (!form.name || !form.checkin || !form.checkout) {
+      window.alert('Completá nombre y fechas.'); return
+    }
+    if (editingId !== null) {
+      await fetch(`/api/reservations/${editingId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form),
+      })
+    } else {
+      await fetch('/api/reservations', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form),
+      })
+    }
+    setModalOpen(false)
+    await fetchReservations()
+  }
+
+  // Config
+  async function openConfig() {
+    const res = await fetch('/api/settings')
+    const data = await res.json()
+    setConfigForm({
+      ical_url: data.ical_url || '',
+      template_confirm: data.template_confirm || DEFAULT_TEMPLATE_CONFIRM,
+      template_checkin: data.template_checkin || DEFAULT_TEMPLATE_CHECKIN,
+      template_checkout: data.template_checkout || DEFAULT_TEMPLATE_CHECKOUT,
+    })
+    setConfigOpen(true)
+  }
+
+  async function handleSaveConfig() {
+    setConfigSaving(true)
+    const res = await fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(configForm),
+    })
+    setConfigSaving(false)
+    if (!res.ok) {
+      const data = await res.json()
+      showAlert(data.error || 'Error al guardar la configuración.', 'red')
+      return
+    }
+    setTemplates({
+      confirm: configForm.template_confirm,
+      checkin: configForm.template_checkin,
+      checkout: configForm.template_checkout,
+    })
+    setConfigOpen(false)
+    showAlert('Configuración guardada.', 'green')
+  }
+
+  // Sync
+  async function handleSync() {
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/sync-ical', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      await fetchReservations()
+      const skippedMsg = data.skipped > 0 ? `, ${data.skipped} sin modificar (editadas manualmente)` : ''
+      showAlert(`Sincronización exitosa: ${data.added} nuevas, ${data.updated} actualizadas${skippedMsg}.`, 'green')
+    } catch (err: any) {
+      showAlert('Error al sincronizar: ' + err.message, 'red')
+    }
+    setSyncing(false)
+  }
+
+  async function handleIcsUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const text = await file.text()
+    const res = await fetch('/api/sync-ical', {
+      method: 'POST',
+      headers: { 'X-ICS-Content': encodeURIComponent(text) },
+    })
+    const data = await res.json()
+    if (!res.ok) { showAlert('Error: ' + data.error, 'red'); return }
+    await fetchReservations()
+    showAlert(`Importación exitosa: ${data.added} nuevas, ${data.updated} actualizadas.`, 'green')
+    e.target.value = ''
+  }
+
+  const today = new Date()
+  const monthLabel = `${MONTHS[today.getMonth()]} ${today.getFullYear()}`
+
+  return (
+    <main className="min-h-screen bg-stone-50 font-sans">
+      <div className="px-6 py-8">
+
+        {alert && (
+          <div className={`mb-6 px-4 py-3 rounded-xl text-sm font-medium ${
+            alert.type === 'green' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' :
+            alert.type === 'red' ? 'bg-red-50 text-red-800 border border-red-200' :
+            'bg-amber-50 text-amber-800 border border-amber-200'
+          }`}>
+            {alert.msg}
+          </div>
+        )}
+
+        {/* Header */}
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-semibold text-stone-900 tracking-tight">Hospedaje Colón</h1>
+            <p className="text-sm text-stone-500 mt-1">{monthLabel}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={openNew}
+              className="bg-stone-900 text-white text-sm px-4 py-2 rounded-lg hover:bg-stone-700 transition-colors">
+              + Nueva reserva
+            </button>
+            <button onClick={openConfig}
+              className="text-sm px-4 py-2 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-100 transition-colors">
+              Ajustes
+            </button>
+            <button onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login' }}
+              className="text-sm px-4 py-2 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-100 transition-colors">
+              Salir
+            </button>
+          </div>
+        </div>
+
+        {/* Sync bar */}
+        <div className="flex items-center gap-3 mb-6 p-4 bg-white rounded-xl border border-stone-200">
+          <span className="text-sm text-stone-500 flex-1">Sincronizar con Booking.com</span>
+          <button onClick={handleSync} disabled={syncing}
+            className="text-sm px-4 py-2 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors disabled:opacity-50">
+            {syncing ? 'Sincronizando...' : '↻ Sincronizar'}
+          </button>
+          <span className="text-stone-300">|</span>
+          <label className="cursor-pointer text-sm px-4 py-2 rounded-lg bg-stone-100 text-stone-600 border border-stone-200 hover:bg-stone-200 transition-colors">
+            Subir .ics
+            <input type="file" accept=".ics" className="hidden" onChange={handleIcsUpload} />
+          </label>
+        </div>
+
+        {/* Metrics */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {[
+            { label: 'Reservas del mes', value: metrics.count },
+            { label: 'Noches ocupadas', value: metrics.nights },
+            { label: 'Huéspedes totales', value: metrics.guests },
+            { label: 'Ingresos del mes', value: formatARS(metrics.revenue) },
+          ].map(({ label, value }) => (
+            <div key={label} className="bg-white rounded-xl border border-stone-200 p-4">
+              <p className="text-xs text-stone-400 mb-1">{label}</p>
+              <p className="text-2xl font-semibold text-stone-900">{value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Table / Calendar */}
+        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+          {/* Section header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-stone-700">
+                {view === 'table' ? 'Listado de reservas' : 'Calendario'}
+              </span>
+              {view === 'table' && someSelected && (
+                <button onClick={handleDeleteSelected}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors">
+                  Borrar seleccionadas ({selected.size})
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {view === 'table' && (
+                <select value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setSelected(new Set()) }}
+                  className="text-sm border border-stone-200 rounded-lg px-3 py-1.5 text-stone-600 bg-white">
+                  <option value="all">Todos los meses</option>
+                  {months.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+                </select>
+              )}
+              {/* View toggle */}
+              <div className="flex rounded-lg border border-stone-200 overflow-hidden">
+                <button onClick={() => setView('table')}
+                  className={`text-xs px-3 py-1.5 transition-colors ${view === 'table' ? 'bg-stone-900 text-white' : 'text-stone-500 hover:bg-stone-50'}`}>
+                  Tabla
+                </button>
+                <button onClick={() => setView('calendar')}
+                  className={`text-xs px-3 py-1.5 border-l border-stone-200 transition-colors ${view === 'calendar' ? 'bg-stone-900 text-white' : 'text-stone-500 hover:bg-stone-50'}`}>
+                  Calendario
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {view === 'table' ? (
+            filtered.length === 0 ? (
+              <div className="text-center py-16 text-stone-400 text-sm">
+                No hay reservas. Sincronizá con Booking o agregá una manualmente.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs text-stone-400 uppercase tracking-wide border-b border-stone-100">
+                      <th className="px-4 py-3 w-8">
+                        <input type="checkbox" checked={allSelected} onChange={toggleSelectAll}
+                          className="rounded border-stone-300 cursor-pointer" />
+                      </th>
+                      <th className="text-left px-4 py-3 font-medium">Huésped</th>
+                      <th className="text-left px-4 py-3 font-medium">Teléfono</th>
+                      <th className="text-left px-4 py-3 font-medium">Llegada</th>
+                      <th className="text-left px-4 py-3 font-medium">Salida</th>
+                      <th className="text-left px-4 py-3 font-medium">Noches</th>
+                      <th className="text-left px-4 py-3 font-medium">Personas</th>
+                      <th className="text-left px-4 py-3 font-medium">Seña</th>
+                      <th className="text-left px-4 py-3 font-medium">Total</th>
+                      <th className="text-left px-4 py-3 font-medium">Estado</th>
+                      <th className="text-left px-4 py-3 font-medium">Fuente</th>
+                      <th className="px-4 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(r => (
+                      <tr key={r.id} className={`border-b border-stone-50 transition-colors ${selected.has(r.id) ? 'bg-stone-50' : 'hover:bg-stone-50'}`}>
+                        <td className="px-4 py-3">
+                          <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleSelect(r.id)}
+                            className="rounded border-stone-300 cursor-pointer" />
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="font-medium text-stone-800">{r.name}</span>
+                          {r.notes && <p className="text-xs text-stone-400 mt-0.5">{r.notes}</p>}
+                        </td>
+                        <td className="px-4 py-3 text-stone-500">{r.phone || '—'}</td>
+                        <td className="px-4 py-3 text-stone-600">{formatDate(r.checkin)}</td>
+                        <td className="px-4 py-3 text-stone-600">{formatDate(r.checkout)}</td>
+                        <td className="px-4 py-3 text-stone-600">{nightsBetween(r.checkin, r.checkout)}</td>
+                        <td className="px-4 py-3 text-stone-600">{r.guests}</td>
+                        <td className="px-4 py-3 text-stone-600">{Number(r.sena) > 0 ? formatARS(r.sena) : '—'}</td>
+                        <td className="px-4 py-3 text-stone-600">{Number(r.cost) > 0 ? formatARS(r.cost) : '—'}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-block text-xs px-2.5 py-1 rounded-full font-medium ${STATUS_STYLES[r.status] || STATUS_STYLES.confirmed}`}>
+                            {STATUS_LABELS[r.status] || r.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-block text-xs px-2.5 py-1 rounded-full font-medium ${SOURCE_STYLES[r.source] || SOURCE_STYLES.particular}`}>
+                            {SOURCE_LABELS[r.source] || r.source}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => openEdit(r)}
+                              className="text-xs px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-100 transition-colors">
+                              Editar
+                            </button>
+                            <button onClick={() => { setMsgReservation(r); setMsgTab('confirm'); setCopied(false) }}
+                              className="text-xs px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-100 transition-colors">
+                              ✉ Mensaje
+                            </button>
+                            <button onClick={() => handleDelete(r.id)}
+                              className="text-xs px-3 py-1.5 rounded-lg border border-red-100 text-red-600 hover:bg-red-50 transition-colors">
+                              Borrar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-stone-200 bg-stone-50 text-sm font-semibold text-stone-700">
+                      <td className="px-4 py-3" />
+                      <td className="px-4 py-3" colSpan={4}>Totales (sin canceladas)</td>
+                      <td className="px-4 py-3">{totals.nights}</td>
+                      <td className="px-4 py-3">{totals.guests}</td>
+                      <td className="px-4 py-3">{totals.sena > 0 ? formatARS(totals.sena) : '—'}</td>
+                      <td className="px-4 py-3">{totals.cost > 0 ? formatARS(totals.cost) : '—'}</td>
+                      <td className="px-4 py-3" colSpan={3} />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )
+          ) : (
+            <CalendarView reservations={reservations} calMonth={calMonth} setCalMonth={setCalMonth} onEdit={openEdit} />
+          )}
+        </div>
+      </div>
+
+      {/* Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setModalOpen(false) }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-semibold text-stone-900 mb-5">
+              {editingId !== null ? 'Editar reserva' : 'Nueva reserva'}
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">Nombre del huésped</label>
+                <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                  value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ej: Juan Pérez" />
+              </div>
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">Teléfono</label>
+                <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                  value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="Ej: +54 11 1234-5678" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Fecha de llegada</label>
+                  <input type="date" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                    value={form.checkin} onChange={e => setForm(f => ({ ...f, checkin: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Fecha de salida</label>
+                  <input type="date" className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                    value={form.checkout} onChange={e => setForm(f => ({ ...f, checkout: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Personas</label>
+                  <input type="number" min={1} max={5} className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                    value={form.guests} onChange={e => setForm(f => ({ ...f, guests: parseInt(e.target.value) || 1 }))} />
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Seña (ARS $)</label>
+                  <input type="number" min={0} className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                    value={form.sena} onChange={e => setForm(f => ({ ...f, sena: parseFloat(e.target.value) || 0 }))} />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">Costo total (ARS $)</label>
+                <input type="number" min={0} className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                  value={form.cost} onChange={e => setForm(f => ({ ...f, cost: parseFloat(e.target.value) || 0 }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Estado</label>
+                  <select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                    value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as any }))}>
+                    <option value="confirmed">Confirmada</option>
+                    <option value="pending">Pendiente</option>
+                    <option value="cancelled">Cancelada</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Fuente</label>
+                  <select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                    value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value as any }))}>
+                    <option value="booking">Booking</option>
+                    <option value="airbnb">Airbnb</option>
+                    <option value="particular">Particular</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">Notas (opcional)</label>
+                <input className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                  value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Ej: Solicitaron cuna" />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setModalOpen(false)}
+                className="px-4 py-2 text-sm rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={handleSave}
+                className="px-4 py-2 text-sm rounded-lg bg-stone-900 text-white hover:bg-stone-700 transition-colors">
+                Guardar reserva
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Message modal */}
+      {msgReservation && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setMsgReservation(null) }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-stone-900">Generar mensaje</h2>
+              <button onClick={() => setMsgReservation(null)} className="text-stone-400 hover:text-stone-600 text-lg leading-none">✕</button>
+            </div>
+            <p className="text-xs text-stone-500 mb-4">
+              Para <span className="font-medium text-stone-700">{msgReservation.name}</span>
+            </p>
+
+            {/* Tabs */}
+            <div className="flex rounded-lg border border-stone-200 overflow-hidden mb-4">
+              {(['confirm', 'checkin', 'checkout'] as MsgType[]).map(type => (
+                <button key={type} onClick={() => { setMsgTab(type); setCopied(false) }}
+                  className={`flex-1 text-xs px-3 py-2 transition-colors border-r border-stone-200 last:border-r-0 ${msgTab === type ? 'bg-stone-900 text-white' : 'text-stone-500 hover:bg-stone-50'}`}>
+                  {MSG_LABELS[type]}
+                </button>
+              ))}
+            </div>
+
+            {/* Message preview */}
+            <textarea
+              readOnly
+              rows={10}
+              className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 font-mono bg-stone-50 resize-none focus:outline-none"
+              value={applyTemplate(msgTab, msgReservation)}
+            />
+
+            <div className="flex justify-end gap-3 mt-4">
+              <button onClick={() => setMsgReservation(null)}
+                className="px-4 py-2 text-sm rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors">
+                Cerrar
+              </button>
+              <button onClick={() => {
+                navigator.clipboard.writeText(applyTemplate(msgTab, msgReservation))
+                setCopied(true)
+                setTimeout(() => setCopied(false), 2000)
+              }}
+                className="px-4 py-2 text-sm rounded-lg bg-stone-900 text-white hover:bg-stone-700 transition-colors">
+                {copied ? '✓ Copiado' : 'Copiar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Config modal */}
+      {configOpen && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setConfigOpen(false) }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+            <h2 className="text-lg font-semibold text-stone-900 mb-1">Ajustes</h2>
+            <p className="text-xs text-stone-400 mb-5">La configuración se guarda en la base de datos y aplica a todos los usuarios.</p>
+
+            <div className="space-y-5">
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">URL iCal de Booking.com</label>
+                <input
+                  className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300 font-mono"
+                  value={configForm.ical_url}
+                  onChange={e => setConfigForm(f => ({ ...f, ical_url: e.target.value }))}
+                  placeholder="https://ical.booking.com/v1/export?t=..."
+                />
+                <p className="text-xs text-stone-400 mt-1">Encontrala en Booking.com → Propiedades → Calendario → Exportar.</p>
+              </div>
+
+              <div className="border-t border-stone-100 pt-4">
+                <p className="text-xs font-medium text-stone-600 mb-3">Plantillas de mensajes (WhatsApp)</p>
+                <p className="text-xs text-stone-400 mb-3">Variables disponibles: <code className="bg-stone-100 px-1 rounded">{'{nombre}'}</code> <code className="bg-stone-100 px-1 rounded">{'{checkin}'}</code> <code className="bg-stone-100 px-1 rounded">{'{checkout}'}</code> <code className="bg-stone-100 px-1 rounded">{'{noches}'}</code> <code className="bg-stone-100 px-1 rounded">{'{personas}'}</code> <code className="bg-stone-100 px-1 rounded">{'{seña}'}</code> <code className="bg-stone-100 px-1 rounded">{'{total}'}</code> — Negrita: <code className="bg-stone-100 px-1 rounded">*texto*</code> Cursiva: <code className="bg-stone-100 px-1 rounded">_texto_</code></p>
+                {([
+                  { key: 'template_confirm', label: 'Solicitud de Confirmación' },
+                  { key: 'template_checkin', label: 'Mensaje de Ingreso' },
+                  { key: 'template_checkout', label: 'Mensaje de Egreso' },
+                ] as const).map(({ key, label }) => (
+                  <div key={key} className="mb-3">
+                    <label className="text-xs text-stone-500 block mb-1">{label}</label>
+                    <textarea
+                      rows={5}
+                      className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300 font-mono resize-y"
+                      value={configForm[key]}
+                      onChange={e => setConfigForm(f => ({ ...f, [key]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setConfigOpen(false)}
+                className="px-4 py-2 text-sm rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={handleSaveConfig} disabled={configSaving}
+                className="px-4 py-2 text-sm rounded-lg bg-stone-900 text-white hover:bg-stone-700 transition-colors disabled:opacity-50">
+                {configSaving ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
+  )
+}
