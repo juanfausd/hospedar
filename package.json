@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "db:migrate": "node lib/migrate.js"
+    "db:migrate": "node lib/migrate.js",
+    "vercel-build": "npm run build && npm run db:migrate"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
