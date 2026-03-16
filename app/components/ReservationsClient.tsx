@@ -248,7 +248,7 @@ const emptyForm = {
   source: 'particular' as const, notes: '',
 }
 
-const emptyMonthlyCostForm = { description: '', type: 'Limpieza', cost: 0 }
+const emptyMonthlyCostForm = { description: '', type: 'Limpieza', cost: 0, year_month: '' }
 
 export default function ReservationsClient({ initialReservations }: { initialReservations: Reservation[] }) {
   const [reservations, setReservations] = useState<Reservation[]>(initialReservations)
@@ -507,13 +507,14 @@ export default function ReservationsClient({ initialReservations }: { initialRes
 
   async function handleAddMonthlyCost() {
     if (!monthlyCostForm.description) { window.alert('Ingresá una descripción.'); return }
+    if (!monthlyCostForm.year_month) { window.alert('Seleccioná un mes.'); return }
     await fetch('/api/monthly-costs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...monthlyCostForm, year_month: filterMonth }),
+      body: JSON.stringify(monthlyCostForm),
     })
-    await fetchMonthlyCosts(filterMonth)
-    setMonthlyCostForm({ ...emptyMonthlyCostForm })
+    if (monthlyCostForm.year_month === filterMonth) await fetchMonthlyCosts(filterMonth)
+    setMonthlyCostForm(f => ({ ...emptyMonthlyCostForm, year_month: f.year_month }))
   }
 
   async function handleDeleteMonthlyCost(id: number) {
@@ -761,7 +762,7 @@ export default function ReservationsClient({ initialReservations }: { initialRes
             <div className="mt-4 bg-white rounded-xl border border-stone-200 overflow-hidden">
               <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
                 <span className="text-sm font-medium text-stone-700">Resumen financiero — {monthLabel2}</span>
-                <button onClick={() => { setMonthlyMgmt(true); setMonthlyCostForm({ ...emptyMonthlyCostForm }) }}
+                <button onClick={() => { setMonthlyMgmt(true); setMonthlyCostForm({ ...emptyMonthlyCostForm, year_month: filterMonth }) }}
                   className="text-xs px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-100 transition-colors">
                   Gestionar costos del mes
                 </button>
@@ -996,6 +997,15 @@ export default function ReservationsClient({ initialReservations }: { initialRes
             <div className="border-t border-stone-100 pt-4">
               <p className="text-xs font-medium text-stone-600 mb-3">Agregar costo</p>
               <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Mes</label>
+                  <input
+                    type="month"
+                    className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                    value={monthlyCostForm.year_month}
+                    onChange={e => setMonthlyCostForm(f => ({ ...f, year_month: e.target.value }))}
+                  />
+                </div>
                 <div>
                   <label className="text-xs text-stone-500 block mb-1">Descripción</label>
                   <input
