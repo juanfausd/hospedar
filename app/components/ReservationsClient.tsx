@@ -261,7 +261,7 @@ export default function ReservationsClient({
 }) {
   const [properties, setProperties] = useState<Property[]>(initialProperties)
   const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(
-    initialProperties.length === 1 ? initialProperties[0].id : null
+    initialProperties[0]?.id ?? null
   )
   const [propertiesModal, setPropertiesModal] = useState(false)
   const [propertyForm, setPropertyForm] = useState({ ...emptyPropertyForm })
@@ -546,7 +546,9 @@ export default function ReservationsClient({
   // Properties
   async function fetchProperties() {
     const res = await fetch('/api/properties')
-    setProperties(await res.json())
+    const data: Property[] = await res.json()
+    setProperties(data)
+    setSelectedPropertyId(prev => prev ?? data[0]?.id ?? null)
   }
 
   async function handleSaveProperty() {
@@ -560,7 +562,7 @@ export default function ReservationsClient({
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(propertyForm),
       })
       const created = await res.json()
-      if (selectedPropertyId === null) setSelectedPropertyId(created.id)
+      if (!selectedPropertyId) setSelectedPropertyId(created.id)
     }
     await fetchProperties()
     setPropertyForm({ ...emptyPropertyForm })
@@ -570,7 +572,8 @@ export default function ReservationsClient({
   async function handleDeleteProperty(id: number) {
     if (!window.confirm('¿Eliminás este alojamiento? Las reservas asociadas quedarán sin alojamiento asignado.')) return
     await fetch(`/api/properties/${id}`, { method: 'DELETE' })
-    if (selectedPropertyId === id) setSelectedPropertyId(null)
+    const remaining = properties.filter(p => p.id !== id)
+    if (selectedPropertyId === id) setSelectedPropertyId(remaining[0]?.id ?? null)
     await fetchProperties()
   }
 
@@ -642,11 +645,10 @@ export default function ReservationsClient({
               <select
                 value={selectedPropertyId ?? ''}
                 onChange={e => {
-                  setSelectedPropertyId(e.target.value ? Number(e.target.value) : null)
+                  setSelectedPropertyId(Number(e.target.value))
                   setSelected(new Set())
                 }}
                 className="text-sm border border-stone-200 rounded-lg px-3 py-2 text-stone-700 bg-white max-w-[220px] truncate">
-                <option value="">— Todos los alojamientos —</option>
                 {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
               <button onClick={() => { setPropertiesModal(true); setPropertyForm({ ...emptyPropertyForm }); setEditingPropertyId(null) }}
