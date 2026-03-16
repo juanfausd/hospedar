@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { Reservation } from '@/lib/types'
+import { Reservation, MonthlyCost } from '@/lib/types'
 
 type View = 'table' | 'calendar'
 type MsgType = 'confirm' | 'checkin' | 'checkout'
@@ -61,7 +61,7 @@ function formatDate(d: string | Date) {
   return `${day}/${m}/${y}`
 }
 function formatARS(n: number) {
-  return '$' + Number(n).toLocaleString('es-AR')
+  return '$' + Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 function monthKey(d: string | Date) {
   const s = toDateStr(d)
@@ -240,15 +240,20 @@ function CalendarView({
   )
 }
 
+const COST_TYPES = ['Comisión Booking', 'Limpieza', 'Otro', 'Productos', 'Reparaciones']
+
 const emptyForm = {
   name: '', phone: '', checkin: '', checkout: '',
   guests: 1, cost: 0, sena: 0, status: 'confirmed' as const,
   source: 'particular' as const, notes: '',
 }
 
+const emptyMonthlyCostForm = { description: '', type: 'Limpieza', cost: 0 }
+
 export default function ReservationsClient({ initialReservations }: { initialReservations: Reservation[] }) {
   const [reservations, setReservations] = useState<Reservation[]>(initialReservations)
-  const [filterMonth, setFilterMonth] = useState('all')
+  const currentMonthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+  const [filterMonth, setFilterMonth] = useState(currentMonthKey)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState({ ...emptyForm })
@@ -274,6 +279,16 @@ export default function ReservationsClient({ initialReservations }: { initialRes
   const [msgReservation, setMsgReservation] = useState<Reservation | null>(null)
   const [msgTab, setMsgTab] = useState<MsgType>('confirm')
   const [copied, setCopied] = useState(false)
+
+  // Exchange rate
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null)
+  const [exchangeRateLoading, setExchangeRateLoading] = useState(false)
+  const [usdAmount, setUsdAmount] = useState<number | ''>('')
+
+  // Monthly costs
+  const [monthlyCosts, setMonthlyCosts] = useState<MonthlyCost[]>([])
+  const [monthlyMgmt, setMonthlyMgmt] = useState(false)
+  const [monthlyCostForm, setMonthlyCostForm] = useState({ ...emptyMonthlyCostForm })
 
   useEffect(() => {
     const today = new Date()
@@ -389,15 +404,31 @@ export default function ReservationsClient({ initialReservations }: { initialRes
     showAlert(`${selected.size} reservas eliminadas.`, 'green')
   }
 
+  // Exchange rate fetch
+  async function fetchExchangeRate() {
+    if (exchangeRate !== null) return // already loaded
+    setExchangeRateLoading(true)
+    try {
+      const res = await fetch('/api/exchange-rate')
+      const data = await res.json()
+      if (data.rate) setExchangeRate(data.rate)
+    } catch {}
+    setExchangeRateLoading(false)
+  }
+
   // Modal
   function openNew() {
     setEditingId(null)
     setForm({ ...emptyForm })
+    setUsdAmount('')
+    fetchExchangeRate()
     setModalOpen(true)
   }
 
   function openEdit(r: Reservation) {
     setEditingId(r.id)
+    setUsdAmount('')
+    fetchExchangeRate()
     setForm({
       name: r.name,
       phone: r.phone || '',
@@ -463,6 +494,31 @@ export default function ReservationsClient({ initialReservations }: { initialRes
     })
     setConfigOpen(false)
     showAlert('Configuración guardada.', 'green')
+  }
+
+  // Monthly costs
+  async function fetchMonthlyCosts(month: string) {
+    if (month === 'all') { setMonthlyCosts([]); return }
+    const res = await fetch(`/api/monthly-costs?month=${month}`)
+    setMonthlyCosts(await res.json())
+  }
+
+  useEffect(() => { fetchMonthlyCosts(filterMonth) }, [filterMonth])
+
+  async function handleAddMonthlyCost() {
+    if (!monthlyCostForm.description) { window.alert('Ingresá una descripción.'); return }
+    await fetch('/api/monthly-costs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...monthlyCostForm, year_month: filterMonth }),
+    })
+    await fetchMonthlyCosts(filterMonth)
+    setMonthlyCostForm({ ...emptyMonthlyCostForm })
+  }
+
+  async function handleDeleteMonthlyCost(id: number) {
+    await fetch(`/api/monthly-costs/${id}`, { method: 'DELETE' })
+    setMonthlyCosts(prev => prev.filter(c => c.id !== id))
   }
 
   // Sync
@@ -550,12 +606,14 @@ export default function ReservationsClient({ initialReservations }: { initialRes
         </div>
 
         {/* Metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
           {[
-            { label: 'Reservas del mes', value: metrics.count },
+            { label: 'Reservas', value: metrics.count },
             { label: 'Noches ocupadas', value: metrics.nights },
-            { label: 'Huéspedes totales', value: metrics.guests },
-            { label: 'Ingresos del mes', value: formatARS(metrics.revenue) },
+            { label: 'Huéspedes', value: metrics.guests },
+            { label: 'Ingresos', value: formatARS(metrics.revenue) },
+            { label: 'Costos', value: filterMonth !== 'all' ? formatARS(monthlyCosts.reduce((s, c) => s + Number(c.cost), 0)) : '—' },
+            { label: 'Ganancia', value: filterMonth !== 'all' ? formatARS(metrics.revenue - monthlyCosts.reduce((s, c) => s + Number(c.cost), 0)) : '—' },
           ].map(({ label, value }) => (
             <div key={label} className="bg-white rounded-xl border border-stone-200 p-4">
               <p className="text-xs text-stone-400 mb-1">{label}</p>
@@ -693,6 +751,40 @@ export default function ReservationsClient({ initialReservations }: { initialRes
             <CalendarView reservations={reservations} calMonth={calMonth} setCalMonth={setCalMonth} onEdit={openEdit} />
           )}
         </div>
+
+        {/* Monthly financial summary */}
+        {filterMonth !== 'all' && (() => {
+          const monthlyTotal = monthlyCosts.reduce((s, c) => s + Number(c.cost), 0)
+          const netProfit = totals.cost - monthlyTotal
+          const monthLabel2 = months.find(m => m.key === filterMonth)?.label ?? filterMonth
+          return (
+            <div className="mt-4 bg-white rounded-xl border border-stone-200 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
+                <span className="text-sm font-medium text-stone-700">Resumen financiero — {monthLabel2}</span>
+                <button onClick={() => { setMonthlyMgmt(true); setMonthlyCostForm({ ...emptyMonthlyCostForm }) }}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-100 transition-colors">
+                  Gestionar costos del mes
+                </button>
+              </div>
+              <div className="px-5 py-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Ingresos del mes</span>
+                  <span className="font-medium text-stone-800">{formatARS(totals.cost)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Costos del mes</span>
+                  <span className="font-medium text-red-600">
+                    {monthlyTotal > 0 ? `- ${formatARS(monthlyTotal)}` : '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between pt-2 border-t border-stone-100 font-semibold">
+                  <span className="text-stone-700">Ganancia neta</span>
+                  <span className={netProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}>{formatARS(netProfit)}</span>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Modal */}
@@ -739,10 +831,32 @@ export default function ReservationsClient({ initialReservations }: { initialRes
                     value={form.sena} onChange={e => setForm(f => ({ ...f, sena: parseFloat(e.target.value) || 0 }))} />
                 </div>
               </div>
-              <div>
-                <label className="text-xs text-stone-500 block mb-1">Costo total (ARS $)</label>
-                <input type="number" min={0} className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
-                  value={form.cost} onChange={e => setForm(f => ({ ...f, cost: parseFloat(e.target.value) || 0 }))} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Costo total (ARS $)</label>
+                  <input type="number" min={0} className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                    value={form.cost} onChange={e => { setUsdAmount(''); setForm(f => ({ ...f, cost: parseFloat(e.target.value) || 0 })) }} />
+                </div>
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Total en USD</label>
+                  <input type="number" min={0} className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                    value={usdAmount}
+                    placeholder="0"
+                    onChange={e => {
+                      const usd = parseFloat(e.target.value) || 0
+                      setUsdAmount(e.target.value === '' ? '' : usd)
+                      if (exchangeRate && usd > 0) {
+                        setForm(f => ({ ...f, cost: Math.round(usd * exchangeRate) }))
+                      }
+                    }} />
+                </div>
+              </div>
+              <div className="text-xs text-stone-400 -mt-2">
+                {exchangeRateLoading && 'Obteniendo tipo de cambio BNA…'}
+                {!exchangeRateLoading && exchangeRate && (
+                  <>TC BNA mid: <span className="font-medium text-stone-500">{formatARS(exchangeRate)}</span>{usdAmount !== '' && Number(usdAmount) > 0 && <> · USD {usdAmount} = <span className="font-medium text-stone-500">{formatARS(Math.round(Number(usdAmount) * exchangeRate))}</span></>}</>
+                )}
+                {!exchangeRateLoading && !exchangeRate && 'No se pudo obtener el tipo de cambio.'}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -827,6 +941,101 @@ export default function ReservationsClient({ initialReservations }: { initialRes
               }}
                 className="px-4 py-2 text-sm rounded-lg bg-stone-900 text-white hover:bg-stone-700 transition-colors">
                 {copied ? '✓ Copiado' : 'Copiar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Monthly costs modal */}
+      {monthlyMgmt && filterMonth !== 'all' && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setMonthlyMgmt(false) }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-stone-900">Costos del mes</h2>
+              <button onClick={() => setMonthlyMgmt(false)} className="text-stone-400 hover:text-stone-600 text-lg leading-none">✕</button>
+            </div>
+            <p className="text-xs text-stone-500 mb-4">{months.find(m => m.key === filterMonth)?.label ?? filterMonth}</p>
+
+            {monthlyCosts.length === 0 ? (
+              <p className="text-sm text-stone-400 text-center py-4">No hay costos registrados para este mes.</p>
+            ) : (
+              <table className="w-full text-sm mb-4">
+                <thead>
+                  <tr className="text-xs text-stone-400 uppercase tracking-wide border-b border-stone-100">
+                    <th className="text-left py-2">Descripción</th>
+                    <th className="text-left py-2">Tipo</th>
+                    <th className="text-right py-2">Importe</th>
+                    <th className="py-2 w-6" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthlyCosts.map(c => (
+                    <tr key={c.id} className="border-b border-stone-50">
+                      <td className="py-2 text-stone-700">{c.description}</td>
+                      <td className="py-2 text-stone-500 text-xs">{c.type}</td>
+                      <td className="py-2 text-right text-stone-700">{formatARS(c.cost)}</td>
+                      <td className="py-2 text-right">
+                        <button onClick={() => handleDeleteMonthlyCost(c.id)}
+                          className="text-stone-300 hover:text-red-500 transition-colors text-xs">✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-stone-200 font-semibold text-stone-700">
+                    <td className="py-2" colSpan={2}>Total costos</td>
+                    <td className="py-2 text-right">{formatARS(monthlyCosts.reduce((s, c) => s + Number(c.cost), 0))}</td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+
+            <div className="border-t border-stone-100 pt-4">
+              <p className="text-xs font-medium text-stone-600 mb-3">Agregar costo</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-stone-500 block mb-1">Descripción</label>
+                  <input
+                    className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                    value={monthlyCostForm.description}
+                    onChange={e => setMonthlyCostForm(f => ({ ...f, description: e.target.value }))}
+                    placeholder="Ej: Limpieza general"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-stone-500 block mb-1">Tipo</label>
+                    <select
+                      className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                      value={monthlyCostForm.type}
+                      onChange={e => setMonthlyCostForm(f => ({ ...f, type: e.target.value }))}>
+                      {COST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-stone-500 block mb-1">Importe (ARS $)</label>
+                    <input
+                      type="number" min={0}
+                      className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                      value={monthlyCostForm.cost}
+                      onChange={e => setMonthlyCostForm(f => ({ ...f, cost: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setMonthlyMgmt(false)}
+                className="px-4 py-2 text-sm rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors">
+                Cerrar
+              </button>
+              <button onClick={handleAddMonthlyCost}
+                className="px-4 py-2 text-sm rounded-lg bg-stone-900 text-white hover:bg-stone-700 transition-colors">
+                Agregar
               </button>
             </div>
           </div>

@@ -14,3 +14,12 @@ export interface Reservation {
   created_at?: string
   updated_at?: string
 }
+
+export interface MonthlyCost {
+  id: number
+  year_month: string
+  description: string
+  type: string
+  cost: number
+  created_at?: string
+}
