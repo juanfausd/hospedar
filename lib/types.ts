@@ -1,5 +1,17 @@
+export interface Property {
+  id: number
+  name: string
+  address?: string
+  rooms?: number
+  capacity?: number
+  google_maps_url?: string
+  instagram_url?: string
+  created_at?: string
+}
+
 export interface Reservation {
   id: number
+  property_id?: number | null
   ical_uid?: string
   name: string
   phone?: string
@@ -17,6 +29,7 @@ export interface Reservation {
 
 export interface MonthlyCost {
   id: number
+  property_id?: number | null
   year_month: string
   description: string
   type: string
