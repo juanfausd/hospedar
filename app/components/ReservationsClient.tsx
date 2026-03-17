@@ -287,6 +287,8 @@ export default function ReservationsClient({
     template_checkout: DEFAULT_TEMPLATE_CHECKOUT,
   })
   const [configSaving, setConfigSaving] = useState(false)
+  const [notifPhones, setNotifPhones] = useState<{ phone: string; apikey: string }[]>([])
+  const [notifForm, setNotifForm] = useState({ phone: '', apikey: '' })
   const [templates, setTemplates] = useState({
     confirm: DEFAULT_TEMPLATE_CONFIRM,
     checkin: DEFAULT_TEMPLATE_CHECKIN,
@@ -491,6 +493,8 @@ export default function ReservationsClient({
       template_checkin: data.template_checkin || DEFAULT_TEMPLATE_CHECKIN,
       template_checkout: data.template_checkout || DEFAULT_TEMPLATE_CHECKOUT,
     })
+    setNotifPhones(data.notification_phones ? JSON.parse(data.notification_phones) : [])
+    setNotifForm({ phone: '', apikey: '' })
     setConfigOpen(true)
   }
 
@@ -499,7 +503,7 @@ export default function ReservationsClient({
     const res = await fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(configForm),
+      body: JSON.stringify({ ...configForm, notification_phones: JSON.stringify(notifPhones) }),
     })
     setConfigSaving(false)
     if (!res.ok) {
@@ -1290,6 +1294,49 @@ export default function ReservationsClient({
                     />
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Notification phones */}
+            <div className="border-t border-stone-100 pt-4 mt-2">
+              <p className="text-xs font-medium text-stone-600 mb-1">Notificaciones por WhatsApp</p>
+              <p className="text-xs text-stone-400 mb-3">
+                Se envía un mensaje el día anterior a cada reserva. Requiere <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank" rel="noopener noreferrer" className="underline hover:text-stone-600">CallMeBot</a>: enviá <code className="bg-stone-100 px-1 rounded">I allow callmebot to send me messages</code> al <strong>+34 644 71 98 98</strong> por WhatsApp para obtener tu API key.
+              </p>
+              {notifPhones.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {notifPhones.map((p, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs bg-stone-50 rounded-lg px-3 py-2">
+                      <span className="text-stone-700 font-medium flex-1">+{p.phone}</span>
+                      <span className="text-stone-400">key: {p.apikey}</span>
+                      <button onClick={() => setNotifPhones(prev => prev.filter((_, j) => j !== i))}
+                        className="text-stone-300 hover:text-red-500 transition-colors ml-1">✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                  placeholder="Teléfono (ej: 5491112345678)"
+                  value={notifForm.phone}
+                  onChange={e => setNotifForm(f => ({ ...f, phone: e.target.value }))}
+                />
+                <input
+                  className="w-28 border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                  placeholder="API key"
+                  value={notifForm.apikey}
+                  onChange={e => setNotifForm(f => ({ ...f, apikey: e.target.value }))}
+                />
+                <button
+                  onClick={() => {
+                    if (!notifForm.phone || !notifForm.apikey) return
+                    setNotifPhones(prev => [...prev, { phone: notifForm.phone.replace(/\D/g, ''), apikey: notifForm.apikey.trim() }])
+                    setNotifForm({ phone: '', apikey: '' })
+                  }}
+                  className="px-3 py-2 text-sm rounded-lg bg-stone-100 text-stone-700 hover:bg-stone-200 transition-colors shrink-0">
+                  + Agregar
+                </button>
               </div>
             </div>
 
