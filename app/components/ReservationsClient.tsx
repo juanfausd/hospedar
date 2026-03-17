@@ -593,7 +593,10 @@ export default function ReservationsClient({
   async function handleSync() {
     setSyncing(true)
     try {
-      const res = await fetch('/api/sync-ical', { method: 'POST' })
+      const res = await fetch('/api/sync-ical', {
+        method: 'POST',
+        headers: selectedPropertyId ? { 'X-Property-Id': String(selectedPropertyId) } : {},
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       await fetchReservations()
@@ -611,7 +614,10 @@ export default function ReservationsClient({
     const text = await file.text()
     const res = await fetch('/api/sync-ical', {
       method: 'POST',
-      headers: { 'X-ICS-Content': encodeURIComponent(text) },
+      headers: {
+        'X-ICS-Content': encodeURIComponent(text),
+        ...(selectedPropertyId ? { 'X-Property-Id': String(selectedPropertyId) } : {}),
+      },
     })
     const data = await res.json()
     if (!res.ok) { showAlert('Error: ' + data.error, 'red'); return }

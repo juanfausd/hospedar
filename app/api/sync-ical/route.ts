@@ -69,7 +69,7 @@ function parseICal(raw: string) {
   return events
 }
 
-async function syncEvents(raw: string) {
+async function syncEvents(raw: string, propertyId: number | null) {
   if (!raw.includes('BEGIN:VCALENDAR')) throw new Error('Respuesta inválida')
 
   // Remove previously imported blocking entries:
@@ -111,9 +111,10 @@ async function syncEvents(raw: string) {
 
       await query(
         `UPDATE reservations
-         SET name=$1, checkin=$2, checkout=$3, guests=$4, status=$5, updated_at=NOW()
+         SET name=$1, checkin=$2, checkout=$3, guests=$4, status=$5, updated_at=NOW(),
+             property_id=COALESCE(property_id, $7)
          WHERE ical_uid=$6`,
-        [ev.name, ev.checkin, ev.checkout, ev.guests, ev.status, ev.uid]
+        [ev.name, ev.checkin, ev.checkout, ev.guests, ev.status, ev.uid, propertyId]
       )
       updated++
     } else {
@@ -130,9 +131,9 @@ async function syncEvents(raw: string) {
       }
 
       await query(
-        `INSERT INTO reservations (ical_uid, name, checkin, checkout, guests, status, source)
-         VALUES ($1, $2, $3, $4, $5, $6, 'booking')`,
-        [ev.uid, ev.name, ev.checkin, ev.checkout, ev.guests, ev.status]
+        `INSERT INTO reservations (ical_uid, name, checkin, checkout, guests, status, source, property_id)
+         VALUES ($1, $2, $3, $4, $5, $6, 'booking', $7)`,
+        [ev.uid, ev.name, ev.checkin, ev.checkout, ev.guests, ev.status, propertyId]
       )
       added++
     }
@@ -143,11 +144,14 @@ async function syncEvents(raw: string) {
 
 export async function POST(req: NextRequest) {
   try {
+    const propertyIdHeader = req.headers.get('X-Property-Id')
+    const propertyId = propertyIdHeader ? parseInt(propertyIdHeader) : null
+
     // Support uploading raw .ics content via header
     const icsHeader = req.headers.get('X-ICS-Content')
     if (icsHeader) {
       const raw = decodeURIComponent(icsHeader)
-      const result = await syncEvents(raw)
+      const result = await syncEvents(raw, propertyId)
       return NextResponse.json({ success: true, ...result })
     }
 
@@ -161,7 +165,7 @@ export async function POST(req: NextRequest) {
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const raw = await res.text()
-    const result = await syncEvents(raw)
+    const result = await syncEvents(raw, propertyId)
     return NextResponse.json({ success: true, ...result })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
