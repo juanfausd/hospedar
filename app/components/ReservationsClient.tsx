@@ -493,7 +493,7 @@ export default function ReservationsClient({
       template_checkin: data.template_checkin || DEFAULT_TEMPLATE_CHECKIN,
       template_checkout: data.template_checkout || DEFAULT_TEMPLATE_CHECKOUT,
     })
-    setNotifPhones(data.notification_phones ? JSON.parse(data.notification_phones) : [])
+    try { setNotifPhones(data.notification_phones ? JSON.parse(data.notification_phones) : []) } catch { setNotifPhones([]) }
     setNotifForm({ phone: '', apikey: '' })
     setConfigOpen(true)
   }
@@ -503,7 +503,7 @@ export default function ReservationsClient({
     const res = await fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...configForm, notification_phones: JSON.stringify(notifPhones) }),
+      body: JSON.stringify(configForm),
     })
     setConfigSaving(false)
     if (!res.ok) {
@@ -518,6 +518,14 @@ export default function ReservationsClient({
     })
     setConfigOpen(false)
     showAlert('Configuración guardada.', 'green')
+  }
+
+  async function saveNotifPhones(phones: { phone: string; apikey: string }[]) {
+    await fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notification_phones: JSON.stringify(phones) }),
+    })
   }
 
   // Monthly costs
@@ -1309,7 +1317,7 @@ export default function ReservationsClient({
                     <div key={i} className="flex items-center gap-2 text-xs bg-stone-50 rounded-lg px-3 py-2">
                       <span className="text-stone-700 font-medium flex-1">+{p.phone}</span>
                       <span className="text-stone-400">key: {p.apikey}</span>
-                      <button onClick={() => setNotifPhones(prev => prev.filter((_, j) => j !== i))}
+                      <button onClick={() => { const updated = notifPhones.filter((_, j) => j !== i); setNotifPhones(updated); saveNotifPhones(updated) }}
                         className="text-stone-300 hover:text-red-500 transition-colors ml-1">✕</button>
                     </div>
                   ))}
@@ -1331,8 +1339,11 @@ export default function ReservationsClient({
                 <button
                   onClick={() => {
                     if (!notifForm.phone || !notifForm.apikey) return
-                    setNotifPhones(prev => [...prev, { phone: notifForm.phone.replace(/\D/g, ''), apikey: notifForm.apikey.trim() }])
+                    const newPhone = { phone: notifForm.phone.replace(/\D/g, ''), apikey: notifForm.apikey.trim() }
+                    const updated = [...notifPhones, newPhone]
+                    setNotifPhones(updated)
                     setNotifForm({ phone: '', apikey: '' })
+                    saveNotifPhones(updated)
                   }}
                   className="px-3 py-2 text-sm rounded-lg bg-stone-100 text-stone-700 hover:bg-stone-200 transition-colors shrink-0">
                   + Agregar
