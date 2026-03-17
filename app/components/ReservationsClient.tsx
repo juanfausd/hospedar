@@ -521,10 +521,10 @@ export default function ReservationsClient({
   }
 
   async function saveNotifPhones(phones: { phone: string; apikey: string }[]) {
-    const res = await fetch('/api/settings', {
-      method: 'PUT',
+    const res = await fetch('/api/notification-phones', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notification_phones: JSON.stringify(phones) }),
+      body: JSON.stringify({ phones }),
     })
     if (res.status === 401) { window.location.href = '/login'; return }
     if (!res.ok) showAlert('Error al guardar los teléfonos.', 'red')
