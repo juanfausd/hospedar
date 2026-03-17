@@ -15,7 +15,7 @@ export async function GET() {
   return NextResponse.json(settings)
 }
 
-export async function PUT(req: NextRequest) {
+async function saveSettings(req: NextRequest) {
   const body = await req.json()
   try {
     for (const [key, value] of Object.entries(body)) {
@@ -31,3 +31,6 @@ export async function PUT(req: NextRequest) {
   }
   return NextResponse.json({ success: true })
 }
+
+export async function PUT(req: NextRequest) { return saveSettings(req) }
+export async function POST(req: NextRequest) { return saveSettings(req) }

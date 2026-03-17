@@ -7,11 +7,15 @@ export async function POST(req: NextRequest) {
   if (!Array.isArray(phones)) {
     return NextResponse.json({ error: 'phones must be an array' }, { status: 400 })
   }
-  await query(
-    `INSERT INTO settings (key, value, updated_at)
-     VALUES ('notification_phones', $1, NOW())
-     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-    [JSON.stringify(phones)]
-  )
+  try {
+    await query(
+      `INSERT INTO settings (key, value, updated_at)
+       VALUES ('notification_phones', $1, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [JSON.stringify(phones)]
+    )
+  } catch (err: any) {
+    return NextResponse.json({ error: 'No se pudo guardar. Corré npm run db:migrate primero.' }, { status: 500 })
+  }
   return NextResponse.json({ ok: true })
 }

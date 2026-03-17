@@ -501,7 +501,7 @@ export default function ReservationsClient({
   async function handleSaveConfig() {
     setConfigSaving(true)
     const res = await fetch('/api/settings', {
-      method: 'PUT',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(configForm),
     })
@@ -521,13 +521,20 @@ export default function ReservationsClient({
   }
 
   async function saveNotifPhones(phones: { phone: string; apikey: string }[]) {
-    const res = await fetch('/api/notification-phones', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phones }),
-    })
-    if (res.status === 401) { window.location.href = '/login'; return }
-    if (!res.ok) showAlert('Error al guardar los teléfonos.', 'red')
+    try {
+      const res = await fetch('/api/notification-phones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phones }),
+      })
+      if (res.status === 401) { window.location.href = '/login'; return }
+      if (!res.ok) {
+        const data = await res.json()
+        showAlert(data.error || 'Error al guardar los teléfonos.', 'red')
+      }
+    } catch {
+      showAlert('Error de red al guardar los teléfonos.', 'red')
+    }
   }
 
   // Monthly costs
