@@ -324,10 +324,19 @@ export default function ReservationsClient({
 
   function applyTemplate(type: MsgType, r: Reservation): string {
     const sena = Number(r.sena || 0)
+    const property = properties.find(p => p.id === (r.property_id ?? selectedPropertyId))
     let tpl = templates[type]
     // If no deposit, remove any line that contains {seña} entirely
     if (sena <= 0) {
       tpl = tpl.split('\n').filter(line => !line.includes('{seña}')).join('\n')
+    }
+    // If no address, remove lines containing {direccion}
+    if (!property?.address) {
+      tpl = tpl.split('\n').filter(line => !line.includes('{direccion}')).join('\n')
+    }
+    // If no maps URL, remove lines containing {maps}
+    if (!property?.google_maps_url) {
+      tpl = tpl.split('\n').filter(line => !line.includes('{maps}')).join('\n')
     }
     return tpl
       .replace(/{nombre}/g, r.name)
@@ -337,6 +346,8 @@ export default function ReservationsClient({
       .replace(/{personas}/g, String(r.guests))
       .replace(/{seña}/g, formatARS(sena))
       .replace(/{total}/g, formatARS(Number(r.cost || 0)))
+      .replace(/{direccion}/g, property?.address || '')
+      .replace(/{maps}/g, property?.google_maps_url || '')
   }
 
   const months = useMemo(() => {
@@ -1308,7 +1319,7 @@ export default function ReservationsClient({
               <div className="border-t border-stone-100 pt-4">
                 <p className="text-xs font-medium text-stone-600 mb-1">Plantillas de mensajes (WhatsApp)</p>
                 <p className="text-xs text-stone-400 mb-3">
-                  Variables: <code className="bg-stone-100 px-1 rounded">{'{nombre}'}</code> <code className="bg-stone-100 px-1 rounded">{'{checkin}'}</code> <code className="bg-stone-100 px-1 rounded">{'{checkout}'}</code> <code className="bg-stone-100 px-1 rounded">{'{noches}'}</code> <code className="bg-stone-100 px-1 rounded">{'{personas}'}</code> <code className="bg-stone-100 px-1 rounded">{'{seña}'}</code> <code className="bg-stone-100 px-1 rounded">{'{total}'}</code> · Negrita: <code className="bg-stone-100 px-1 rounded">*texto*</code> Cursiva: <code className="bg-stone-100 px-1 rounded">_texto_</code>
+                  Variables: <code className="bg-stone-100 px-1 rounded">{'{nombre}'}</code> <code className="bg-stone-100 px-1 rounded">{'{checkin}'}</code> <code className="bg-stone-100 px-1 rounded">{'{checkout}'}</code> <code className="bg-stone-100 px-1 rounded">{'{noches}'}</code> <code className="bg-stone-100 px-1 rounded">{'{personas}'}</code> <code className="bg-stone-100 px-1 rounded">{'{seña}'}</code> <code className="bg-stone-100 px-1 rounded">{'{total}'}</code> <code className="bg-stone-100 px-1 rounded">{'{direccion}'}</code> <code className="bg-stone-100 px-1 rounded">{'{maps}'}</code> · Negrita: <code className="bg-stone-100 px-1 rounded">*texto*</code> Cursiva: <code className="bg-stone-100 px-1 rounded">_texto_</code>
                 </p>
                 <div className="grid grid-cols-3 gap-3">
                   {([
