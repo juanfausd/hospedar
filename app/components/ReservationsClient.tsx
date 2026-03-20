@@ -673,26 +673,24 @@ export default function ReservationsClient({
         )}
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-8 gap-4">
-          <div className="flex items-center gap-4 min-w-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-3">
+          <div className="flex items-center gap-3 flex-wrap min-w-0">
             <h1 className="text-2xl font-semibold text-stone-900 tracking-tight shrink-0">HospedAr</h1>
-            <div className="flex items-center gap-2 min-w-0">
-              <select
-                value={selectedPropertyId ?? ''}
-                onChange={e => {
-                  setSelectedPropertyId(Number(e.target.value))
-                  setSelected(new Set())
-                }}
-                className="text-sm border border-stone-200 rounded-lg px-3 py-2 text-stone-700 bg-white max-w-[220px] truncate">
-                {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-              <button onClick={() => { setPropertiesModal(true); setPropertyForm({ ...emptyPropertyForm }); setEditingPropertyId(null) }}
-                className="text-sm px-3 py-2 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-100 transition-colors shrink-0">
-                Alojamientos
-              </button>
-            </div>
+            <select
+              value={selectedPropertyId ?? ''}
+              onChange={e => {
+                setSelectedPropertyId(Number(e.target.value))
+                setSelected(new Set())
+              }}
+              className="text-sm border border-stone-200 rounded-lg px-3 py-2 text-stone-700 bg-white max-w-[220px] truncate">
+              {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <button onClick={() => { setPropertiesModal(true); setPropertyForm({ ...emptyPropertyForm }); setEditingPropertyId(null) }}
+              className="text-sm px-3 py-2 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-100 transition-colors shrink-0">
+              Alojamientos
+            </button>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 flex-wrap">
             <button onClick={openNew}
               className="bg-stone-900 text-white text-sm px-4 py-2 rounded-lg hover:bg-stone-700 transition-colors">
               + Nueva reserva
@@ -709,7 +707,7 @@ export default function ReservationsClient({
         </div>
 
         {/* Sync bar */}
-        <div className="flex items-center gap-3 mb-6 p-4 bg-white rounded-xl border border-stone-200">
+        <div className="flex flex-wrap items-center gap-3 mb-6 p-4 bg-white rounded-xl border border-stone-200">
           <span className="text-sm text-stone-500 flex-1">Sincronizar con Booking.com</span>
           <button onClick={handleSync} disabled={syncing}
             className="text-sm px-4 py-2 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors disabled:opacity-50">
@@ -742,7 +740,7 @@ export default function ReservationsClient({
         {/* Table / Calendar */}
         <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
           {/* Section header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4 border-b border-stone-100">
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-stone-700">
                 {view === 'table' ? 'Listado de reservas' : 'Calendario'}
