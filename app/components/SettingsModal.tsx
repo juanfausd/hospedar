@@ -20,6 +20,77 @@ type Props = {
   showAlert: (msg: string, type: 'green' | 'red' | 'amber') => void
 }
 
+function TestWhatsAppButton({ phone, apikey }: { phone: string; apikey: string }) {
+  const [status, setStatus] = useState<'idle' | 'sending' | 'ok' | 'error'>('idle')
+  const [errorMsg, setErrorMsg] = useState('')
+
+  async function handleTest() {
+    setStatus('sending')
+    setErrorMsg('')
+    try {
+      const res = await fetch('/api/test-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, apikey }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setErrorMsg(data.error || 'Error desconocido'); setStatus('error') }
+      else setStatus('ok')
+    } catch (e: any) {
+      setErrorMsg(e.message)
+      setStatus('error')
+    }
+    setTimeout(() => setStatus('idle'), 4000)
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button onClick={handleTest} disabled={status === 'sending'}
+        className="text-stone-400 hover:text-stone-600 transition-colors text-xs disabled:opacity-40">
+        {status === 'sending' ? '…' : status === 'ok' ? '✓' : 'Probar'}
+      </button>
+      {status === 'error' && <p className="text-xs text-red-500 max-w-[160px] text-right leading-tight">{errorMsg}</p>}
+    </div>
+  )
+}
+
+function TestEmailButton({ email }: { email: string }) {
+  const [status, setStatus] = useState<'idle' | 'sending' | 'ok' | 'error'>('idle')
+  const [errorMsg, setErrorMsg] = useState('')
+
+  async function handleTest() {
+    if (!email) return
+    setStatus('sending')
+    setErrorMsg('')
+    try {
+      const res = await fetch('/api/test-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setErrorMsg(data.error || 'Error desconocido'); setStatus('error') }
+      else setStatus('ok')
+    } catch (e: any) {
+      setErrorMsg(e.message)
+      setStatus('error')
+    }
+    setTimeout(() => setStatus('idle'), 4000)
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        onClick={handleTest}
+        disabled={!email || status === 'sending'}
+        className="px-3 py-2 text-sm rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-100 transition-colors disabled:opacity-40 shrink-0">
+        {status === 'sending' ? 'Enviando…' : status === 'ok' ? '✓ Enviado' : 'Probar'}
+      </button>
+      {status === 'error' && <p className="text-xs text-red-500 max-w-[200px] text-right">{errorMsg}</p>}
+    </div>
+  )
+}
+
 export default function SettingsModal({ open, onSaved, onClose, showAlert }: Props) {
   const [configForm, setConfigForm] = useState<ConfigForm>({
     ical_url: '',
@@ -141,13 +212,16 @@ export default function SettingsModal({ open, onSaved, onClose, showAlert }: Pro
             <p className="text-xs text-stone-400 mb-3">
               Se envía un resumen por email el día anterior a cada reserva. Requiere configurar <code className="bg-stone-100 px-1 rounded">RESEND_API_KEY</code> en las variables de entorno de Vercel. Obtené tu API key gratis en <a href="https://resend.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-stone-600">resend.com</a>.
             </p>
-            <input
-              type="email"
-              className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
-              placeholder="tucorreo@ejemplo.com"
-              value={configForm.notification_email}
-              onChange={e => setConfigForm(f => ({ ...f, notification_email: e.target.value }))}
-            />
+            <div className="flex gap-2">
+              <input
+                type="email"
+                className="flex-1 border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+                placeholder="tucorreo@ejemplo.com"
+                value={configForm.notification_email}
+                onChange={e => setConfigForm(f => ({ ...f, notification_email: e.target.value }))}
+              />
+              <TestEmailButton email={configForm.notification_email} />
+            </div>
           </div>
 
           {/* Notification phones */}
@@ -162,6 +236,7 @@ export default function SettingsModal({ open, onSaved, onClose, showAlert }: Pro
                   <div key={i} className="flex items-center gap-2 text-xs bg-stone-50 rounded-lg px-3 py-2">
                     <span className="text-stone-700 font-medium flex-1">+{p.phone}</span>
                     <span className="text-stone-400">key: {p.apikey}</span>
+                    <TestWhatsAppButton phone={p.phone} apikey={p.apikey} />
                     <button onClick={() => { const updated = notifPhones.filter((_, j) => j !== i); setNotifPhones(updated); saveNotifPhones(updated) }}
                       className="text-stone-300 hover:text-red-500 transition-colors ml-1">✕</button>
                   </div>
