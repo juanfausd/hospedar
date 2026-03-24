@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Hospedaje Colón — Reservas',
+  title: 'HospedAr — Reservas',
   description: 'Sistema de administración de reservas',
 }
 

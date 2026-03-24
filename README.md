@@ -1,4 +1,4 @@
-# Hospedaje Colón — Sistema de Reservas
+# HospedAr — Sistema de Reservas
 
 App de administración de reservas turísticas construida con Next.js 14, TypeScript, Tailwind CSS y PostgreSQL.
 
