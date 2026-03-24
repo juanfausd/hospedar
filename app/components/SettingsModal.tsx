@@ -10,6 +10,7 @@ type ConfigForm = {
   template_confirm: string
   template_checkin: string
   template_checkout: string
+  notification_email: string
 }
 
 type Props = {
@@ -25,6 +26,7 @@ export default function SettingsModal({ open, onSaved, onClose, showAlert }: Pro
     template_confirm: DEFAULT_TEMPLATE_CONFIRM,
     template_checkin: DEFAULT_TEMPLATE_CHECKIN,
     template_checkout: DEFAULT_TEMPLATE_CHECKOUT,
+    notification_email: '',
   })
   const [notifPhones, setNotifPhones] = useState<NotifPhone[]>([])
   const [notifForm, setNotifForm] = useState({ phone: '', apikey: '' })
@@ -38,6 +40,7 @@ export default function SettingsModal({ open, onSaved, onClose, showAlert }: Pro
         template_confirm: data.template_confirm || DEFAULT_TEMPLATE_CONFIRM,
         template_checkin: data.template_checkin || DEFAULT_TEMPLATE_CHECKIN,
         template_checkout: data.template_checkout || DEFAULT_TEMPLATE_CHECKOUT,
+        notification_email: data.notification_email || '',
       })
       try { setNotifPhones(data.notification_phones ? JSON.parse(data.notification_phones) : []) } catch { setNotifPhones([]) }
       setNotifForm({ phone: '', apikey: '' })
@@ -130,6 +133,21 @@ export default function SettingsModal({ open, onSaved, onClose, showAlert }: Pro
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Notification email */}
+          <div className="border-t border-stone-100 pt-4">
+            <p className="text-xs font-medium text-stone-600 mb-1">Notificación por email</p>
+            <p className="text-xs text-stone-400 mb-3">
+              Se envía un resumen por email el día anterior a cada reserva. Requiere configurar <code className="bg-stone-100 px-1 rounded">RESEND_API_KEY</code> en las variables de entorno de Vercel. Obtené tu API key gratis en <a href="https://resend.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-stone-600">resend.com</a>.
+            </p>
+            <input
+              type="email"
+              className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
+              placeholder="tucorreo@ejemplo.com"
+              value={configForm.notification_email}
+              onChange={e => setConfigForm(f => ({ ...f, notification_email: e.target.value }))}
+            />
           </div>
 
           {/* Notification phones */}
