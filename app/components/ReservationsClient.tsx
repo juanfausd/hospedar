@@ -288,24 +288,6 @@ export default function ReservationsClient({
     setSyncing(false)
   }
 
-  async function handleIcsUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const text = await file.text()
-    const res = await fetch('/api/sync-ical', {
-      method: 'POST',
-      headers: {
-        'X-ICS-Content': encodeURIComponent(text),
-        ...(selectedPropertyId ? { 'X-Property-Id': String(selectedPropertyId) } : {}),
-      },
-    })
-    const data = await res.json()
-    if (!res.ok) { showAlert('Error: ' + data.error, 'red'); return }
-    await fetchReservations()
-    showAlert(`Importación exitosa: ${data.added} nuevas, ${data.updated} actualizadas.`, 'green')
-    e.target.value = ''
-  }
-
   const monthlyTotal = monthlyCosts.reduce((s, c) => s + Number(c.cost), 0)
   const netProfit = totals.cost - monthlyTotal
   const monthLabel = months.find(m => m.key === filterMonth)?.label ?? filterMonth
@@ -355,20 +337,6 @@ export default function ReservationsClient({
           </div>
         </div>
 
-        {/* Sync bar */}
-        <div className="flex flex-wrap items-center gap-3 mb-6 p-4 bg-white rounded-xl border border-stone-200">
-          <span className="text-sm text-stone-500 flex-1">Sincronizar con Booking.com</span>
-          <button onClick={handleSync} disabled={syncing}
-            className="text-sm px-4 py-2 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors disabled:opacity-50">
-            {syncing ? 'Sincronizando...' : '↻ Sincronizar'}
-          </button>
-          <span className="text-stone-300">|</span>
-          <label className="cursor-pointer text-sm px-4 py-2 rounded-lg bg-stone-100 text-stone-600 border border-stone-200 hover:bg-stone-200 transition-colors">
-            Subir .ics
-            <input type="file" accept=".ics" className="hidden" onChange={handleIcsUpload} />
-          </label>
-        </div>
-
         {/* Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
           {[
@@ -394,11 +362,17 @@ export default function ReservationsClient({
             </span>
             <div className="flex items-center gap-2">
               {view === 'table' && (
-                <select value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setSelected(new Set()) }}
-                  className="text-sm border border-stone-200 rounded-lg px-3 py-1.5 text-stone-600 bg-white">
-                  <option value="all">Todos los meses</option>
-                  {months.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
-                </select>
+                <>
+                  <button onClick={handleSync} disabled={syncing}
+                    className="text-sm px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors disabled:opacity-50">
+                    {syncing ? 'Sincronizando...' : '↻ Booking'}
+                  </button>
+                  <select value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setSelected(new Set()) }}
+                    className="text-sm border border-stone-200 rounded-lg px-3 py-1.5 text-stone-600 bg-white">
+                    <option value="all">Todos los meses</option>
+                    {months.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+                  </select>
+                </>
               )}
               <div className="flex rounded-lg border border-stone-200 overflow-hidden">
                 <button onClick={() => setView('table')}
