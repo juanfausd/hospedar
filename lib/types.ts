@@ -20,7 +20,7 @@ export interface Reservation {
   guests: number
   cost: number
   sena: number
-  status: 'confirmed' | 'pending' | 'cancelled'
+  status: 'confirmed' | 'contactada' | 'pending' | 'cancelled'
   source: 'booking' | 'airbnb' | 'particular'
   notes?: string
   created_at?: string

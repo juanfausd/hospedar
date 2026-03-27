@@ -10,7 +10,7 @@ export type ReservationFormState = {
   guests: number
   cost: number
   sena: number
-  status: 'confirmed' | 'pending' | 'cancelled'
+  status: 'confirmed' | 'contactada' | 'pending' | 'cancelled'
   source: 'booking' | 'airbnb' | 'particular'
   notes: string
 }
@@ -116,6 +116,7 @@ export default function ReservationModal({
                 <select className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300"
                   value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as any }))}>
                   <option value="confirmed">Confirmada</option>
+                  <option value="contactada">Contactada</option>
                   <option value="pending">Pendiente</option>
                   <option value="cancelled">Cancelada</option>
                 </select>

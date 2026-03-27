@@ -98,13 +98,13 @@ async function syncEvents(raw: string, propertyId: number | null) {
 
     if (existing.rows.length) {
       const row = existing.rows[0]
-      // Don't overwrite confirmed reservations or manually edited entries
-      const isConfirmed = row.status === 'confirmed'
+      // Don't overwrite confirmed/contactada reservations or manually edited entries
+      const isProtected = row.status === 'confirmed' || row.status === 'contactada'
       const isManuallyEdited =
         row.source !== 'booking' &&
-        (row.status === 'confirmed' || row.status === 'pending')
+        (row.status === 'confirmed' || row.status === 'contactada' || row.status === 'pending')
 
-      if (isConfirmed || isManuallyEdited) {
+      if (isProtected || isManuallyEdited) {
         skipped++
         continue
       }
@@ -121,7 +121,7 @@ async function syncEvents(raw: string, propertyId: number | null) {
       // Skip if a confirmed reservation already covers this date range
       const overlap = await query(
         `SELECT id FROM reservations
-         WHERE status = 'confirmed'
+         WHERE status IN ('confirmed', 'contactada')
            AND checkin < $1 AND checkout > $2`,
         [ev.checkout, ev.checkin]
       )

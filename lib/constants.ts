@@ -41,11 +41,13 @@ export const MONTHS_ES = ['enero','febrero','marzo','abril','mayo','junio','juli
 
 export const STATUS_LABELS: Record<string, string> = {
   confirmed: 'Confirmada',
+  contactada: 'Contactada',
   pending: 'Pendiente',
   cancelled: 'Cancelada',
 }
 export const STATUS_STYLES: Record<string, string> = {
   confirmed: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
+  contactada: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200',
   pending: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
   cancelled: 'bg-red-50 text-red-700 ring-1 ring-red-200',
 }
