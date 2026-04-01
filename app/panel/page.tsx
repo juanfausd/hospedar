@@ -1,10 +1,10 @@
 import { query } from '@/lib/db'
 import { Reservation, Property } from '@/lib/types'
-import ReservationsClient from './components/ReservationsClient'
+import ReservationsClient from '@/app/components/ReservationsClient'
 
 export const dynamic = 'force-dynamic'
 
-export default async function Home() {
+export default async function PanelPage() {
   let reservations: Reservation[] = []
   let properties: Property[] = []
   try {

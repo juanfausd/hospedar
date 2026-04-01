@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken, COOKIE_NAME } from '@/lib/auth'
 
+const PUBLIC_PATHS = ['/', '/precios', '/contacto', '/panel/login']
+
+function isPublicPath(pathname: string): boolean {
+  if (PUBLIC_PATHS.includes(pathname)) return true
+  if (pathname.startsWith('/api/auth/')) return true
+  if (pathname === '/api/contact') return true
+  if (pathname.startsWith('/_next/')) return true
+  if (pathname === '/favicon.ico') return true
+  return false
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // Allow login page and auth API through
-  if (pathname.startsWith('/login') || pathname.startsWith('/api/auth')) {
+  if (isPublicPath(pathname)) {
     return NextResponse.next()
   }
 
@@ -17,7 +27,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const loginUrl = req.nextUrl.clone()
-    loginUrl.pathname = '/login'
+    loginUrl.pathname = '/panel/login'
     return NextResponse.redirect(loginUrl)
   }
 

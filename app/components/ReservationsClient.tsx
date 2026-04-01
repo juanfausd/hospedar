@@ -330,7 +330,7 @@ export default function ReservationsClient({
               className="text-sm px-4 py-2 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-100 transition-colors">
               Ajustes
             </button>
-            <button onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login' }}
+            <button onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/panel/login' }}
               className="text-sm px-4 py-2 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-100 transition-colors">
               Salir
             </button>
