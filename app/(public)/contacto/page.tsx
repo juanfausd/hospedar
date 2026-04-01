@@ -68,7 +68,7 @@ export default function ContactoPage() {
           <div className="text-center mb-10">
             <h1 className="text-4xl font-bold text-stone-900">Contacto</h1>
             <p className="text-stone-500 mt-3 text-lg">
-              Completá el formulario y te respondemos a la brevedad.
+              Completá el formulario y te responderemos a la brevedad.
             </p>
           </div>
 
