@@ -17,9 +17,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Usuario o contraseña incorrectos' }, { status: 401 })
   }
 
-  const token = await signToken({ username: user.username })
+  const role = user.role || 'propietario'
+  const token = await signToken({ username: user.username, role })
 
-  const res = NextResponse.json({ ok: true })
+  const res = NextResponse.json({ ok: true, role })
   res.cookies.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',

@@ -27,6 +27,25 @@ export interface Reservation {
   updated_at?: string
 }
 
+export interface User {
+  id: number
+  username: string
+  email?: string
+  first_name?: string
+  last_name?: string
+  role: string
+  created_at?: string
+}
+
+export interface Plan {
+  id: number
+  name: string
+  max_properties: number | null
+  description?: string
+  cost: number
+  created_at?: string
+}
+
 export interface MonthlyCost {
   id: number
   property_id?: number | null

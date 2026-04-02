@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken, COOKIE_NAME } from '@/lib/auth'
 
-const PUBLIC_PATHS = ['/', '/precios', '/contacto', '/panel/login']
+const PUBLIC_PATHS = ['/', '/precios', '/contacto', '/panel/login', '/admin/login']
 
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true
@@ -27,8 +27,20 @@ export async function middleware(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const loginUrl = req.nextUrl.clone()
-    loginUrl.pathname = '/panel/login'
+    loginUrl.pathname = pathname.startsWith('/admin') ? '/admin/login' : '/panel/login'
     return NextResponse.redirect(loginUrl)
+  }
+
+  // Admin-only routes
+  if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
+    if (payload.role !== 'admin') {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      const panelUrl = req.nextUrl.clone()
+      panelUrl.pathname = '/panel'
+      return NextResponse.redirect(panelUrl)
+    }
   }
 
   return NextResponse.next()

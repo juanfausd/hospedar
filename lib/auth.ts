@@ -4,7 +4,12 @@ const secret = new TextEncoder().encode(process.env.JWT_SECRET!)
 const COOKIE_NAME = 'session'
 const EXPIRES_IN = '8h'
 
-export async function signToken(payload: { username: string }) {
+export interface SessionPayload {
+  username: string
+  role: string
+}
+
+export async function signToken(payload: SessionPayload) {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime(EXPIRES_IN)
@@ -12,10 +17,10 @@ export async function signToken(payload: { username: string }) {
     .sign(secret)
 }
 
-export async function verifyToken(token: string): Promise<{ username: string } | null> {
+export async function verifyToken(token: string): Promise<SessionPayload | null> {
   try {
     const { payload } = await jwtVerify(token, secret)
-    return payload as { username: string }
+    return payload as SessionPayload
   } catch {
     return null
   }
