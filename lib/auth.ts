@@ -7,6 +7,7 @@ const EXPIRES_IN = '8h'
 export interface SessionPayload {
   username: string
   role: string
+  [key: string]: unknown
 }
 
 export async function signToken(payload: SessionPayload) {
