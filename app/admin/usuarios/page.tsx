@@ -105,8 +105,8 @@ export default function UsuariosPage() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Usuarios</h1>
-          <p className="text-stone-400 text-sm mt-1">Gestión de acceso al sistema</p>
+          <h1 className="text-2xl font-semibold text-stone-900">Usuarios</h1>
+          <p className="text-stone-500 text-sm mt-1">Gestión de acceso al sistema</p>
         </div>
         <button
           onClick={openCreate}
@@ -117,16 +117,16 @@ export default function UsuariosPage() {
       </div>
 
       {loading ? (
-        <p className="text-stone-500 text-sm">Cargando…</p>
+        <p className="text-stone-400 text-sm">Cargando…</p>
       ) : users.length === 0 ? (
-        <div className="text-center py-16 text-stone-500">
+        <div className="text-center py-16 text-stone-400">
           <p className="text-sm">No hay usuarios registrados.</p>
         </div>
       ) : (
-        <div className="bg-stone-900 rounded-xl border border-stone-800 overflow-hidden">
+        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-stone-800 text-stone-400 text-xs uppercase tracking-wide">
+              <tr className="border-b border-stone-100 text-stone-500 text-xs uppercase tracking-wide bg-stone-50">
                 <th className="px-4 py-3 text-left font-medium">Nombre</th>
                 <th className="px-4 py-3 text-left font-medium">Email / Usuario</th>
                 <th className="px-4 py-3 text-left font-medium">Rol</th>
@@ -136,20 +136,20 @@ export default function UsuariosPage() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-b border-stone-800 last:border-0 hover:bg-stone-800/40">
-                  <td className="px-4 py-3 text-white">
+                <tr key={u.id} className="border-b border-stone-100 last:border-0 hover:bg-stone-50">
+                  <td className="px-4 py-3 text-stone-800 font-medium">
                     {u.first_name || u.last_name
                       ? `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim()
-                      : <span className="text-stone-500">—</span>}
+                      : <span className="text-stone-400 font-normal">—</span>}
                   </td>
-                  <td className="px-4 py-3 text-stone-300">
+                  <td className="px-4 py-3 text-stone-600">
                     {u.email || u.username}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
                       u.role === 'admin'
-                        ? 'bg-violet-900/60 text-violet-300'
-                        : 'bg-stone-800 text-stone-300'
+                        ? 'bg-violet-100 text-violet-700'
+                        : 'bg-stone-100 text-stone-600'
                     }`}>
                       {ROLE_LABELS[u.role] ?? u.role}
                     </span>
@@ -161,7 +161,7 @@ export default function UsuariosPage() {
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => openEdit(u)}
-                        className="text-stone-400 hover:text-white text-xs px-2 py-1 rounded hover:bg-stone-700 transition-colors"
+                        className="text-stone-500 hover:text-stone-900 text-xs px-2 py-1 rounded hover:bg-stone-100 transition-colors"
                       >
                         Editar
                       </button>
@@ -169,13 +169,13 @@ export default function UsuariosPage() {
                         <>
                           <button
                             onClick={() => handleDelete(u.id)}
-                            className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded hover:bg-stone-700 transition-colors"
+                            className="text-red-600 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors"
                           >
                             Confirmar
                           </button>
                           <button
                             onClick={() => setDeleteConfirm(null)}
-                            className="text-stone-500 hover:text-stone-300 text-xs px-2 py-1 rounded hover:bg-stone-700 transition-colors"
+                            className="text-stone-400 hover:text-stone-600 text-xs px-2 py-1 rounded hover:bg-stone-100 transition-colors"
                           >
                             Cancelar
                           </button>
@@ -183,7 +183,7 @@ export default function UsuariosPage() {
                       ) : (
                         <button
                           onClick={() => setDeleteConfirm(u.id)}
-                          className="text-stone-500 hover:text-red-400 text-xs px-2 py-1 rounded hover:bg-stone-700 transition-colors"
+                          className="text-stone-400 hover:text-red-500 text-xs px-2 py-1 rounded hover:bg-stone-100 transition-colors"
                         >
                           Eliminar
                         </button>
@@ -199,68 +199,68 @@ export default function UsuariosPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl p-6 w-full max-w-md shadow-xl">
-            <h2 className="text-lg font-semibold text-white mb-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white border border-stone-200 rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <h2 className="text-lg font-semibold text-stone-900 mb-5">
               {editUser ? 'Editar usuario' : 'Nuevo usuario'}
             </h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-stone-400 mb-1">Nombre</label>
+                  <label className="block text-xs font-medium text-stone-600 mb-1">Nombre</label>
                   <input
                     type="text"
                     value={form.first_name}
                     onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-                    className="w-full rounded-lg border border-stone-700 bg-stone-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     placeholder="Juan"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-stone-400 mb-1">Apellido</label>
+                  <label className="block text-xs font-medium text-stone-600 mb-1">Apellido</label>
                   <input
                     type="text"
                     value={form.last_name}
                     onChange={(e) => setForm({ ...form, last_name: e.target.value })}
-                    className="w-full rounded-lg border border-stone-700 bg-stone-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     placeholder="García"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-stone-400 mb-1">Email</label>
+                <label className="block text-xs font-medium text-stone-600 mb-1">Email</label>
                 <input
                   type="email"
                   required
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="w-full rounded-lg border border-stone-700 bg-stone-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   placeholder="juan@ejemplo.com"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-stone-400 mb-1">
-                  Contraseña {editUser && <span className="text-stone-600">(dejar vacío para no cambiar)</span>}
+                <label className="block text-xs font-medium text-stone-600 mb-1">
+                  Contraseña {editUser && <span className="text-stone-400 font-normal">(dejar vacío para no cambiar)</span>}
                 </label>
                 <input
                   type="password"
                   required={!editUser}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  className="w-full rounded-lg border border-stone-700 bg-stone-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   placeholder="••••••••"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-stone-400 mb-1">Rol</label>
+                <label className="block text-xs font-medium text-stone-600 mb-1">Rol</label>
                 <select
                   value={form.role}
                   onChange={(e) => setForm({ ...form, role: e.target.value })}
-                  className="w-full rounded-lg border border-stone-700 bg-stone-800 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 >
                   <option value="propietario">Propietario</option>
                   <option value="admin">Administrador</option>
@@ -268,7 +268,7 @@ export default function UsuariosPage() {
               </div>
 
               {error && (
-                <p className="text-sm text-red-400 bg-red-950 border border-red-900 rounded-lg px-3 py-2">
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                   {error}
                 </p>
               )}
@@ -277,14 +277,14 @@ export default function UsuariosPage() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 border border-stone-700 text-stone-300 hover:text-white py-2 px-4 rounded-lg text-sm transition-colors hover:bg-stone-800"
+                  className="flex-1 border border-stone-200 text-stone-600 hover:text-stone-900 py-2 px-4 rounded-lg text-sm transition-colors hover:bg-stone-50"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-900 disabled:text-emerald-600 text-white font-medium py-2 px-4 rounded-lg text-sm transition-colors"
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-medium py-2 px-4 rounded-lg text-sm transition-colors"
                 >
                   {saving ? 'Guardando…' : editUser ? 'Guardar cambios' : 'Crear usuario'}
                 </button>
