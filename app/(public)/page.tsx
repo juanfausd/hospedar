@@ -43,7 +43,7 @@ export default function HomePage() {
             Administrá tus alojamientos desde un solo lugar
           </h1>
           <p className="text-stone-300 text-lg sm:text-xl max-w-2xl mx-auto mb-10">
-            HospedAr es el sistema de gestión de reservas pensado para anfitriones argentinos. Sincronizá con
+            Hospedando es el sistema de gestión de reservas pensado para anfitriones argentinos. Sincronizá con
             Booking.com, enviá mensajes por WhatsApp y llevá el control financiero de tu negocio, todo desde un panel
             simple y rápido.
           </p>

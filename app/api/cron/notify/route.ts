@@ -38,7 +38,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<{ o
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) return { ok: false, error: 'RESEND_API_KEY no configurado' }
   try {
-    const from = process.env.RESEND_FROM_EMAIL || 'HospedAr <onboarding@resend.dev>'
+    const from = process.env.RESEND_FROM_EMAIL || 'Hospedando <onboarding@resend.dev>'
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -56,7 +56,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<{ o
 }
 
 function buildTextMessage(reservations: any[], dateLabel: string): string {
-  const lines: string[] = [`🏠 *HospedAr — Reservas para mañana ${dateLabel}*`]
+  const lines: string[] = [`🏠 *Hospedando — Reservas para mañana ${dateLabel}*`]
   for (const r of reservations) {
     const cin = toDateStr(r.checkin)
     const cout = toDateStr(r.checkout)
@@ -98,7 +98,7 @@ function buildHtmlEmail(reservations: any[], dateLabel: string): string {
 <body style="font-family:sans-serif;background:#fafaf9;margin:0;padding:24px">
   <div style="max-width:700px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e7e5e4;overflow:hidden">
     <div style="background:#1c1917;padding:20px 24px">
-      <h1 style="margin:0;color:#fff;font-size:18px;font-weight:600">🏠 HospedAr</h1>
+      <h1 style="margin:0;color:#fff;font-size:18px;font-weight:600">🏠 Hospedando</h1>
       <p style="margin:4px 0 0;color:#a8a29e;font-size:14px">Reservas para mañana — ${dateLabel}</p>
     </div>
     <div style="padding:24px">
@@ -122,7 +122,7 @@ function buildHtmlEmail(reservations: any[], dateLabel: string): string {
       </table>
     </div>
     <div style="padding:16px 24px;background:#fafaf9;border-top:1px solid #e7e5e4">
-      <p style="margin:0;color:#a8a29e;font-size:12px">Enviado automáticamente por HospedAr</p>
+      <p style="margin:0;color:#a8a29e;font-size:12px">Enviado automáticamente por Hospedando</p>
     </div>
   </div>
 </body>
@@ -169,7 +169,7 @@ export async function GET(req: NextRequest) {
 
   const message = buildTextMessage(reservations, dateLabel)
   const emailHtml = buildHtmlEmail(reservations, dateLabel)
-  const emailSubject = `HospedAr — ${reservations.length} reserva${reservations.length !== 1 ? 's' : ''} para mañana (${dateLabel})`
+  const emailSubject = `Hospedando — ${reservations.length} reserva${reservations.length !== 1 ? 's' : ''} para mañana (${dateLabel})`
 
   // Send WhatsApp messages in parallel
   const whatsappResults = await Promise.all(

@@ -18,7 +18,7 @@ export default function NavBar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="text-lg font-semibold text-stone-800 hover:text-emerald-700 transition-colors">
-            HospedAr
+            Hospedando
           </Link>
 
           {/* Nav links */}

@@ -11,6 +11,7 @@ import MessageModal from './MessageModal'
 import MonthlyCostsModal, { MonthlyCostFormState } from './MonthlyCostsModal'
 import PropertiesModal, { PropertyFormState } from './PropertiesModal'
 import SettingsModal from './SettingsModal'
+import HolidaysModal, { Holiday } from './HolidaysModal'
 
 type View = 'table' | 'calendar'
 
@@ -55,6 +56,8 @@ export default function ReservationsClient({
   const [monthlyCosts, setMonthlyCosts] = useState<MonthlyCost[]>([])
   const [monthlyMgmt, setMonthlyMgmt] = useState(false)
   const [monthlyCostForm, setMonthlyCostForm] = useState<MonthlyCostFormState>({ ...emptyMonthlyCostForm })
+  const [holidays, setHolidays] = useState<Holiday[]>([])
+  const [holidaysOpen, setHolidaysOpen] = useState(false)
 
   useEffect(() => {
     const now = new Date()
@@ -68,6 +71,7 @@ export default function ReservationsClient({
         checkout: data.template_checkout || DEFAULT_TEMPLATE_CHECKOUT,
       })
     }).catch(() => {})
+    fetch('/api/holidays').then(r => r.json()).then(data => setHolidays(data)).catch(() => {})
   }, [])
 
   useEffect(() => { fetchMonthlyCosts(filterMonth) }, [filterMonth, selectedPropertyId])
@@ -309,7 +313,7 @@ export default function ReservationsClient({
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-3">
           <div className="flex items-center gap-3 flex-wrap min-w-0">
-            <h1 className="text-2xl font-semibold text-stone-900 tracking-tight shrink-0">HospedAr</h1>
+            <h1 className="text-2xl font-semibold text-stone-900 tracking-tight shrink-0">Hospedando</h1>
             <select
               value={selectedPropertyId ?? ''}
               onChange={e => { setSelectedPropertyId(Number(e.target.value)); setSelected(new Set()) }}
@@ -325,6 +329,10 @@ export default function ReservationsClient({
             <button onClick={openNew}
               className="bg-stone-900 text-white text-sm px-4 py-2 rounded-lg hover:bg-stone-700 transition-colors">
               + Nueva reserva
+            </button>
+            <button onClick={() => setHolidaysOpen(true)}
+              className="text-sm px-4 py-2 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-100 transition-colors">
+              Feriados
             </button>
             <button onClick={() => setConfigOpen(true)}
               className="text-sm px-4 py-2 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-100 transition-colors">
@@ -402,7 +410,7 @@ export default function ReservationsClient({
               onDeleteSelected={handleDeleteSelected}
             />
           ) : (
-            <CalendarView reservations={reservations} calMonth={calMonth} setCalMonth={setCalMonth} onEdit={openEdit} />
+            <CalendarView reservations={reservations} calMonth={calMonth} setCalMonth={setCalMonth} onEdit={openEdit} holidays={holidays} />
           )}
         </div>
 
@@ -481,6 +489,12 @@ export default function ReservationsClient({
         onSaved={t => setTemplates(t)}
         onClose={() => setConfigOpen(false)}
         showAlert={showAlert}
+      />
+
+      <HolidaysModal
+        open={holidaysOpen}
+        holidays={holidays}
+        onClose={() => setHolidaysOpen(false)}
       />
     </main>
   )

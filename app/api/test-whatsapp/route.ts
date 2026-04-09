@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const message = '🏠 *HospedAr* — Mensaje de prueba. Las notificaciones por WhatsApp están funcionando correctamente.'
+    const message = '🏠 *Hospedando* — Mensaje de prueba. Las notificaciones por WhatsApp están funcionando correctamente.'
     const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(message)}&apikey=${encodeURIComponent(apikey)}`
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
     const body = await res.text()

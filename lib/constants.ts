@@ -3,7 +3,7 @@ export type MsgType = 'confirm' | 'checkin' | 'checkout'
 export const DEFAULT_TEMPLATE_CONFIRM =
 `Hola *{nombre}*! 😊
 
-Te escribimos para confirmar tu reserva en *HospedAr*.
+Te escribimos para confirmar tu reserva en *Hospedando*.
 
 📅 *Ingreso:* {checkin}
 📅 *Egreso:* {checkout}
@@ -15,7 +15,7 @@ Por favor confirmanos si todo está correcto. ¡Muchas gracias!`
 export const DEFAULT_TEMPLATE_CHECKIN =
 `Hola *{nombre}*! 😊
 
-Te esperamos hoy en *HospedAr*.
+Te esperamos hoy en *Hospedando*.
 
 📅 *Check-in:* {checkin}
 🌙 *Noches:* {noches}
@@ -26,7 +26,7 @@ Ante cualquier consulta no dudes en escribirnos. ¡Bienvenido/a!`
 export const DEFAULT_TEMPLATE_CHECKOUT =
 `Hola *{nombre}*! 😊
 
-Te recordamos que mañana, *{checkout}*, es tu día de salida de *HospedAr*.
+Te recordamos que mañana, *{checkout}*, es tu día de salida de *Hospedando*.
 
 ¡Esperamos que hayas disfrutado tu estadía! Fue un placer tenerte con nosotros. 🙏`
 

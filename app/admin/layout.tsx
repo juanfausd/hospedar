@@ -34,7 +34,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Sidebar */}
       <aside className="w-56 flex-shrink-0 flex flex-col border-r border-stone-200 bg-white p-4">
         <div className="mb-8 px-3">
-          <p className="text-stone-900 font-semibold text-base">HospedAr</p>
+          <p className="text-stone-900 font-semibold text-base">Hospedando</p>
           <p className="text-stone-400 text-xs mt-0.5">Administración</p>
         </div>
 

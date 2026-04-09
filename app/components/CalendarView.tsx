@@ -4,14 +4,16 @@ import { useMemo } from 'react'
 import { Reservation } from '@/lib/types'
 import { toDateStr } from '@/lib/formatters'
 import { MONTHS, SOURCE_LABELS, CAL_SOURCE_STYLES, DOW_LABELS } from '@/lib/constants'
+import { Holiday } from './HolidaysModal'
 
 export default function CalendarView({
-  reservations, calMonth, setCalMonth, onEdit,
+  reservations, calMonth, setCalMonth, onEdit, holidays = [],
 }: {
   reservations: Reservation[]
   calMonth: string
   setCalMonth: (m: string) => void
   onEdit: (r: Reservation) => void
+  holidays?: Holiday[]
 }) {
   const [year, month] = calMonth.split('-').map(Number)
 
@@ -45,6 +47,17 @@ export default function CalendarView({
       return cin <= d && d < cout
     })
   }
+
+  // Build a map of holiday dates for the current month for quick lookup
+  const holidayMap = useMemo(() => {
+    const map = new Map<string, string>() // date -> nombre
+    for (const h of holidays) {
+      if (h.fecha.startsWith(`${year}-${String(month).padStart(2, '0')}`)) {
+        map.set(h.fecha, h.nombre)
+      }
+    }
+    return map
+  }, [holidays, year, month])
 
   const todayStr = new Date().toISOString().slice(0, 10)
 
@@ -89,10 +102,24 @@ export default function CalendarView({
           if (!day) return <div key={i} />
           const ds = dayStr(day)
           const isToday = ds === todayStr
+          const holidayName = holidayMap.get(ds)
           const dayRes = reservationsForDay(day)
+
+          let cellClass = 'border-stone-100'
+          let cellBg = ''
+          if (isToday) { cellClass = 'border-stone-400'; cellBg = 'bg-stone-50' }
+          else if (holidayName) { cellClass = 'border-amber-200'; cellBg = 'bg-amber-50' }
+
           return (
-            <div key={i} className={`min-h-[80px] rounded-lg p-1 border ${isToday ? 'border-stone-400 bg-stone-50' : 'border-stone-100'}`}>
-              <span className={`text-xs font-medium block mb-1 ${isToday ? 'text-stone-900' : 'text-stone-400'}`}>{day}</span>
+            <div key={i} className={`min-h-[80px] rounded-lg p-1 border ${cellClass} ${cellBg}`}>
+              <span className={`text-xs font-medium block ${isToday ? 'text-stone-900' : holidayName ? 'text-amber-700' : 'text-stone-400'}`}>
+                {day}
+              </span>
+              {holidayName && (
+                <span className="block text-[10px] leading-tight text-amber-600 truncate mb-0.5" title={holidayName}>
+                  {holidayName}
+                </span>
+              )}
               <div className="space-y-0.5">
                 {dayRes.slice(0, 3).map(r => (
                   <button key={r.id} onClick={() => onEdit(r)}
@@ -129,13 +156,17 @@ export default function CalendarView({
         </div>
       )}
 
-      <div className="flex items-center gap-4 mt-4 pt-3 border-t border-stone-100">
+      <div className="flex items-center gap-4 mt-4 pt-3 border-t border-stone-100 flex-wrap">
         {Object.entries(SOURCE_LABELS).map(([key, label]) => (
           <div key={key} className="flex items-center gap-1.5">
             <span className={`inline-block w-3 h-3 rounded-sm ${CAL_SOURCE_STYLES[key]}`} />
             <span className="text-xs text-stone-500">{label}</span>
           </div>
         ))}
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-sm bg-amber-100 border border-amber-200" />
+          <span className="text-xs text-stone-500">Feriado</span>
+        </div>
       </div>
     </div>
   )
